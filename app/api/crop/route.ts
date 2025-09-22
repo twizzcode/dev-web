@@ -14,17 +14,19 @@ export const maxDuration = 20;
 export const preferredRegion = 'auto';
 
 // Simple debug GET to verify route is loaded in production
+interface SharpVersionInfo { version?: { sharp?: string } }
 export async function GET() {
+  const sharpVersion = (sharp as unknown as SharpVersionInfo).version?.sharp;
   const info = {
     ok: true,
     message: 'Crop route debug GET: POST required for processing',
     node: process.version,
-    sharpVersion: (sharp as any).version?.sharp,
+    sharpVersion,
     runtime,
     dynamic,
     time: new Date().toISOString(),
     env: process.env.VERCEL ? 'vercel' : 'local'
-  };
+  } as const;
   return NextResponse.json(info, { status: 200 });
 }
 
@@ -53,7 +55,7 @@ export async function POST(req: NextRequest) {
     const payload: CropPayload = JSON.parse(payloadStr);
 
     // Basic debug logging (can be removed in production)
-  console.log('[crop] payload', payload, 'fileSizeApprox', (file as any)?.size ?? 'n/a');
+  console.log('[crop] payload', payload, 'fileSizeApprox', file.size ?? 'n/a');
 
     if (!['Grid','Carousel','Custom'].includes(payload.mode)) {
       return NextResponse.json({ error: 'Invalid mode' }, { status: 400 });
