@@ -46,7 +46,7 @@ export const ReelsSettings: React.FC<ReelsSettingsProps> = ({ image, onReset, on
     try { const off=document.createElement('canvas'); off.width=1; off.height=1; const ctx=off.getContext('2d'); if(!ctx) return '#000'; ctx.drawImage(img,sx,sy,sw,sh,0,0,1,1); const d=ctx.getImageData(0,0,1,1).data; const c=`rgb(${d[0]},${d[1]},${d[2]})`; avgCache.current[key]=c; return c; } catch { return '#000'; }
   };
 
-  const drawComposite = (ctx:CanvasRenderingContext2D,W:number,H:number,img:HTMLImageElement,useMode:ReelsMode,useColor:string,useBlur:number) => {
+  const drawComposite = useCallback((ctx:CanvasRenderingContext2D,W:number,H:number,img:HTMLImageElement,useMode:ReelsMode,useColor:string,useBlur:number) => {
     ctx.clearRect(0,0,W,H);
     if (useMode==='white') ctx.fillStyle='#fff'; else if (useMode==='black') ctx.fillStyle='#000'; else if (useMode==='custom') ctx.fillStyle=useColor; else ctx.fillStyle='transparent';
     ctx.fillRect(0,0,W,H);
@@ -56,13 +56,13 @@ export const ReelsSettings: React.FC<ReelsSettingsProps> = ({ image, onReset, on
     const destX = targetW<=W ? (W-targetW)/2 : 0;
     ctx.drawImage(img,srcX,0,visW,nH,destX,destY,targetW<=W?targetW:W,targetH);
     return {destY,targetImgH:targetH};
-  };
+  },[]);
 
   const redraw = useCallback((overrideMode?:ReelsMode,overrideColor?:string,overrideBlur?:number) => {
     if(!imgElRef.current || !canvasRef.current || !containerH) return;
     const H=containerH; const W=Math.round(H*ASPECT); const canvas=canvasRef.current; if(canvas.width!==W||canvas.height!==H){ canvas.width=W; canvas.height=H; setCanvasSize({w:W,h:H}); }
     const ctx=canvas.getContext('2d'); if(!ctx) return; const r=drawComposite(ctx,W,H,imgElRef.current,overrideMode||mode,overrideColor||customColor,overrideBlur===undefined?contentBlur:overrideBlur); setGuideRect({top:r.destY,height:r.targetImgH});
-  },[containerH,mode,customColor,contentBlur]);
+  },[containerH,mode,customColor,contentBlur,drawComposite]);
 
   useEffect(()=>{ let cancel=false; if(!image){ imgElRef.current=null; return; } (async()=>{ try{ const im=await loadImage(image); if(cancel) return; imgElRef.current=im; redraw(); }catch(e){ console.error('load fail',e);} })(); return()=>{ cancel=true; }; },[image,redraw]);
   useEffect(()=>{ if(imgElRef.current) redraw(); },[containerH,redraw]);
