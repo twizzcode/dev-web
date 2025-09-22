@@ -1,4 +1,5 @@
 "use client"
+export const dynamic = 'force-dynamic';
 import SettingHomeComponents from "@/components/(main)/home-components/setting";
 import HomeUpload from "@/components/(main)/home-components/upload";
 import Result from "@/components/(main)/home-components/result";
