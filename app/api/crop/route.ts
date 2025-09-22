@@ -11,6 +11,26 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 // Give more time if large images (Vercel limit; safe lower bound)
 export const maxDuration = 20;
+export const preferredRegion = 'auto';
+
+// Simple debug GET to verify route is loaded in production
+export async function GET() {
+  const info = {
+    ok: true,
+    message: 'Crop route debug GET: POST required for processing',
+    node: process.version,
+    sharpVersion: (sharp as any).version?.sharp,
+    runtime,
+    dynamic,
+    time: new Date().toISOString(),
+    env: process.env.VERCEL ? 'vercel' : 'local'
+  };
+  return NextResponse.json(info, { status: 200 });
+}
+
+export async function HEAD() {
+  return new Response(null, { status: 200, headers: { 'x-crop-head': 'ok' } });
+}
 
 export async function OPTIONS() {
   return NextResponse.json({}, { status: 200 });
