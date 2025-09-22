@@ -19,6 +19,9 @@ export const metadata: Metadata = {
   description: "Best Platform to Cut Your Images",
 };
 
+// Disable static prerender to avoid build-time execution issues on root page client components
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: Readonly<{

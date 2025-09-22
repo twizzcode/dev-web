@@ -1,98 +1,62 @@
-import { NextRequest, NextResponse } from 'next/server';
-import sharp from 'sharp';
-import { cropGrid } from '@/lib/image/grid';
-import { cropCarousel } from '@/lib/image/carousel';
-import { cropCustom } from '@/lib/image/custom';
-import { CropPayload } from '@/lib/image/types';
-
-// Force Node.js serverless runtime (Sharp needs native modules)
-export const runtime = 'nodejs';
-// Prevent static optimization & ensure always executed server-side
-export const dynamic = 'force-dynamic';
-// Give more time if large images (Vercel limit; safe lower bound)
-export const maxDuration = 20;
-export const preferredRegion = 'auto';
-
-// Simple debug GET to verify route is loaded in production
-interface SharpVersionInfo { version?: { sharp?: string } }
-export async function GET() {
-  const sharpVersion = (sharp as unknown as SharpVersionInfo).version?.sharp;
-  const info = {
-    ok: true,
-    message: 'Crop route debug GET: POST required for processing',
-    node: process.version,
-    sharpVersion,
-    runtime,
-    dynamic,
-    time: new Date().toISOString(),
-    env: process.env.VERCEL ? 'vercel' : 'local'
-  } as const;
-  return NextResponse.json(info, { status: 200 });
-}
-
-export async function HEAD() {
-  return new Response(null, { status: 200, headers: { 'x-crop-head': 'ok' } });
-}
-
-export async function OPTIONS() {
-  return NextResponse.json({}, { status: 200 });
-}
+// app/api/crop/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
 
 export async function POST(req: NextRequest) {
   try {
-    // Method guard (defensive: App Router already routes by export name)
-    if (req.method && req.method !== 'POST') {
-      return NextResponse.json({ error: 'Only POST allowed', method: req.method }, { status: 405 });
+    const formData = await req.formData();
+    const file = formData.get("file") as File | null;
+    const payload = formData.get("payload") as string;
+
+    if (!file) {
+      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    const t0 = Date.now();
-    const form = await req.formData();
-    const file = form.get('file') as File | null;
-    const payloadStr = form.get('payload');
-    if (!file || typeof payloadStr !== 'string') {
-      return NextResponse.json({ error: 'Invalid form data' }, { status: 400 });
+    const { mode, rows, cols, format, quality } = JSON.parse(payload || "{}");
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const image = sharp(buffer);
+
+    const metadata = await image.metadata();
+    const width = metadata.width || 1080;
+    const height = metadata.height || 1080;
+
+    const results: { index: number; dataUrl: string }[] = [];
+
+    if (mode === "Grid") {
+      const sliceHeight = Math.floor(height / rows);
+      for (let r = 0; r < rows; r++) {
+        const cropped = await sharp(buffer)
+          .extract({ left: 0, top: r * sliceHeight, width, height: sliceHeight })
+          .toFormat(format || "png", { quality: quality || 100 })
+          .toBuffer();
+
+        results.push({
+          index: r,
+          dataUrl: `data:image/${format};base64,${cropped.toString("base64")}`,
+        });
+      }
+    } else if (mode === "Carousel") {
+      const sliceWidth = Math.floor(width / cols);
+      for (let c = 0; c < cols; c++) {
+        const cropped = await sharp(buffer)
+          .extract({ left: c * sliceWidth, top: 0, width: sliceWidth, height })
+          .toFormat(format || "png", { quality: quality || 100 })
+          .toBuffer();
+
+        results.push({
+          index: c,
+          dataUrl: `data:image/${format};base64,${cropped.toString("base64")}`,
+        });
+      }
     }
-    const payload: CropPayload = JSON.parse(payloadStr);
 
-    // Basic debug logging (can be removed in production)
-  console.log('[crop] payload', payload, 'fileSizeApprox', file.size ?? 'n/a');
-
-    if (!['Grid','Carousel','Custom'].includes(payload.mode)) {
-      return NextResponse.json({ error: 'Invalid mode' }, { status: 400 });
-    }
-
-    const arrBuf = Buffer.from(await file.arrayBuffer());
-    const meta = await sharp(arrBuf).metadata();
-  console.log('[crop] meta', { width: meta.width, height: meta.height, format: meta.format });
-    if (!meta.width || !meta.height) {
-      return NextResponse.json({ error: 'Unreadable image' }, { status: 400 });
-    }
-
-    // Basic limits
-    if (meta.width * meta.height > 12000 * 12000) {
-      return NextResponse.json({ error: 'Image too large' }, { status: 400 });
-    }
-
-    let buffers: Buffer[] = [];
-    try {
-      if (payload.mode === 'Grid') buffers = await cropGrid(arrBuf, meta, payload);
-      else if (payload.mode === 'Carousel') buffers = await cropCarousel(arrBuf, meta, payload);
-      else if (payload.mode === 'Custom') buffers = await cropCustom(arrBuf, meta, payload);
-    } catch (cropErr) {
-      const err = cropErr as Error;
-      console.error('[crop] processing error', err);
-      return NextResponse.json({ error: 'Crop processing failed', detail: err.message || 'unknown' }, { status: 500 });
-    }
-
-    const fmt = payload.format || 'png';
-    const mime = fmt === 'png' ? 'image/png' : fmt === 'jpeg' ? 'image/jpeg' : fmt === 'webp' ? 'image/webp' : 'image/avif';
-    const totalBytes = buffers.reduce((a,b)=>a+b.length,0);
-    console.log('[crop] finished', { slices: buffers.length, totalKB: Math.round(totalBytes/1024), durationMs: Date.now()-t0 });
-    const slices = buffers.map((buf, i) => ({ index: i, dataUrl: `data:${mime};base64,${buf.toString('base64')}` }));
-    return NextResponse.json({ type: 'array', slices });
-  } catch (e) {
-    const err = e as Error;
-    console.error('Crop API error (outer)', err);
-    return NextResponse.json({ error: 'Server error', detail: err.message || 'unknown' }, { status: 500 });
+    return NextResponse.json({ type: "array", slices: results });
+  } catch (err: any) {
+    console.error("Server crop failed:", err);
+    return NextResponse.json(
+      { error: "Crop failed", detail: err.message },
+      { status: 500 }
+    );
   }
 }

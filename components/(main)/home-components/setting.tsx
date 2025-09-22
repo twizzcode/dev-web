@@ -40,164 +40,211 @@ const SettingHomeComponents: React.FC<SettingHomeComponentsProps> = ({ files = [
   }, [files]);
 
   const handleCrop = async () => {
-    if (!firstImageFile) return;
-    setCropping(true);
-    try {
-      if (processingMode === 'server') {
-        const fd = new FormData();
-        fd.append('file', firstImageFile);
-        fd.append('payload', JSON.stringify({
-          mode: typeValue,
-          rows,
-          cols,
-          gap: gridGap,
-          format: 'png',
-          quality: 100,
-          lossless: true
-        }));
-        const res = await fetch('/api/crop', { method: 'POST', body: fd });
-        if (!res.ok) {
-          let detail = '';
-          try { const errJson = await res.json(); if (errJson?.error) detail = errJson.error + (errJson?.detail ? ` - ${errJson.detail}` : ''); } catch {}
-          const message = `Server crop failed${detail ? ': ' + detail : ''} (status ${res.status})`;
-          console.error(message);
-          throw new Error(message);
-        }
-        interface ServerSlice { index: number; dataUrl: string }
-        interface ServerResponse { type: 'array'; slices?: ServerSlice[] }
-        const data: ServerResponse = await res.json();
-        const images: string[] = (data.slices || []).map((s)=> s.dataUrl);
-        onCropped?.(images);
-        return;
-      }
-      const arrayBuffer = await firstImageFile.arrayBuffer();
-      const blob = new Blob([arrayBuffer], { type: firstImageFile.type });
-      const imgUrl = URL.createObjectURL(blob);
-      const img = new Image();
-      img.src = imgUrl;
-      await new Promise(res => { img.onload = res; img.onerror = res; });
-      const originalWidth = img.width;
-      const originalHeight = img.height;
-      const cropped: string[] = [];
-
-      if (typeValue === 'Grid') {
-        // Reference logic: maintain aspect by shrinking effective width first if height would overflow.
-        const aspectRatio = gridGap === 'with-gap' ? 0.4313099041533546 : 0.4340836012861736; // rowHeight / effectiveWidth
-        const compositeWidth = gridGap === 'with-gap' ? 3130 : 3110;
-        const sliceOffsets = gridGap === 'with-gap' ? [0,1025,2050] : [0,1015,2030];
-        const outputSliceHeight = 1350;
-        // Start with full original width as effective width
-        let effectiveWidth = originalWidth;
-        let rowHeight = effectiveWidth * aspectRatio;
-        let totalHeight = rowHeight * rows;
-        if (totalHeight > originalHeight) {
-          // Need to reduce width so that resulting rowHeight fits: rowHeight = effectiveWidth * aspect <= originalHeight/rows
-          // => effectiveWidth <= (originalHeight/rows)/aspectRatio
-          effectiveWidth = (originalHeight / rows) / aspectRatio;
-          rowHeight = effectiveWidth * aspectRatio;
-          totalHeight = rowHeight * rows; // now fits
-        }
-        const startX = effectiveWidth < originalWidth ? (originalWidth - effectiveWidth)/2 : 0;
-        const startY = totalHeight < originalHeight ? (originalHeight - totalHeight)/2 : 0;
-        for (let r = 0; r < rows; r++) {
-          const cropY = startY + r * rowHeight;
-          const rowCanvas = document.createElement('canvas');
-          rowCanvas.width = compositeWidth;
-          rowCanvas.height = outputSliceHeight;
-          const rowCtx = rowCanvas.getContext('2d');
-          rowCtx?.drawImage(
-            img,
-            startX,
-            cropY,
-            effectiveWidth,
-            rowHeight,
-            0,
-            0,
-            compositeWidth,
-            outputSliceHeight
-          );
-          for (let i = 0; i < 3; i++) {
-            const sliceCanvas = document.createElement('canvas');
-            sliceCanvas.width = 1080;
-            sliceCanvas.height = outputSliceHeight;
-            const sliceCtx = sliceCanvas.getContext('2d');
-            sliceCtx?.drawImage(
-              rowCanvas,
-              sliceOffsets[i],
-              0,
-              1080,
-              outputSliceHeight,
-              0,
-              0,
-              1080,
-              outputSliceHeight
-            );
-            cropped.push(sliceCanvas.toDataURL('image/png'));
-          }
-        }
-      } else if (typeValue === 'Carousel') {
-        const aspectRatio = 4/5;
-        const totalCols = cols;
-        let targetWidth = originalWidth / totalCols;
-        let targetHeight = targetWidth / aspectRatio;
-        if (targetHeight > originalHeight) {
-          targetHeight = originalHeight;
-          targetWidth = targetHeight * aspectRatio;
-        }
-        const startX = (originalWidth - targetWidth * totalCols)/2;
-        const startY = (originalHeight - targetHeight)/2;
-        for (let c = 0; c < totalCols; c++) {
-          const canvas = document.createElement('canvas');
-          canvas.width = 1080;
-          canvas.height = 1350;
-          const ctx = canvas.getContext('2d');
-            ctx?.drawImage(
-              img,
-              startX + c*targetWidth,
-              startY,
-              targetWidth,
-              targetHeight,
-              0,
-              0,
-              1080,
-              1350
-            );
-          cropped.push(canvas.toDataURL('image/png'));
-        }
-      } else if (typeValue === 'Custom') {
-        const totalCols = cols;
-        const totalRows = rows;
-        const cellWidth = originalWidth / totalCols;
-        const cellHeight = originalHeight / totalRows;
-        for (let r = 0; r < totalRows; r++) {
-          for (let c = 0; c < totalCols; c++) {
-            const canvas = document.createElement('canvas');
-            canvas.width = cellWidth;
-            canvas.height = cellHeight;
-            const ctx = canvas.getContext('2d');
-            ctx?.drawImage(
-              img,
-              c*cellWidth,
-              r*cellHeight,
-              cellWidth,
-              cellHeight,
-              0,
-              0,
-              cellWidth,
-              cellHeight
-            );
-            cropped.push(canvas.toDataURL('image/png'));
-          }
-        }
-      }
-      onCropped?.(cropped);
-      URL.revokeObjectURL(imgUrl);
-    } catch (e) {
-      console.error('Crop failed', e);
-    } finally {
-      setCropping(false);
+  if (!firstImageFile) return;
+  setCropping(true);
+  try {
+    if (processingMode === "server") {
+      await cropOnServer(firstImageFile);
+      return;
     }
-  };
+
+    // coba client dulu
+    try {
+      await cropOnClient(firstImageFile);
+    } catch (err) {
+      console.warn("⚠️ Client crop gagal, fallback ke server...", err);
+      await cropOnServer(firstImageFile);
+    }
+  } catch (e) {
+    console.error("❌ Crop totally failed:", e);
+  } finally {
+    setCropping(false);
+  }
+};
+
+// =============== Helpers ===============
+
+const cropOnServer = async (file: File) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append(
+    "payload",
+    JSON.stringify({
+      mode: typeValue,
+      rows,
+      cols,
+      gap: gridGap,
+      format: "png",
+      quality: 100,
+      lossless: true,
+    })
+  );
+
+  const res = await fetch("/api/crop", { method: "POST", body: fd });
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(`Server crop failed: ${msg}`);
+  }
+
+  interface ServerSlice {
+    index: number;
+    dataUrl: string;
+  }
+  interface ServerResponse {
+    type: "array";
+    slices?: ServerSlice[];
+  }
+
+  const data: ServerResponse = await res.json();
+  const images: string[] = (data.slices || []).map((s) => s.dataUrl);
+  onCropped?.(images);
+};
+
+const cropOnClient = async (file: File) => {
+  const arrayBuffer = await file.arrayBuffer();
+  const blob = new Blob([arrayBuffer], { type: file.type });
+  const imgUrl = URL.createObjectURL(blob);
+  const img = new Image();
+  img.src = imgUrl;
+
+  await new Promise((res, rej) => {
+    img.onload = res;
+    img.onerror = () => rej(new Error("Image load error"));
+  });
+
+  const originalWidth = img.width;
+  const originalHeight = img.height;
+  const cropped: string[] = [];
+
+  if (typeValue === "Grid") {
+    const aspectRatio =
+      gridGap === "with-gap"
+        ? 0.4313099041533546
+        : 0.4340836012861736; // rowHeight / effectiveWidth
+    const compositeWidth = gridGap === "with-gap" ? 3130 : 3110;
+    const sliceOffsets = gridGap === "with-gap"
+      ? [0, 1025, 2050]
+      : [0, 1015, 2030];
+    const outputSliceHeight = 1350;
+
+    let effectiveWidth = originalWidth;
+    let rowHeight = effectiveWidth * aspectRatio;
+    let totalHeight = rowHeight * rows;
+
+    if (totalHeight > originalHeight) {
+      effectiveWidth = originalHeight / rows / aspectRatio;
+      rowHeight = effectiveWidth * aspectRatio;
+      totalHeight = rowHeight * rows;
+    }
+
+    const startX =
+      effectiveWidth < originalWidth ? (originalWidth - effectiveWidth) / 2 : 0;
+    const startY =
+      totalHeight < originalHeight
+        ? (originalHeight - totalHeight) / 2
+        : 0;
+
+    for (let r = 0; r < rows; r++) {
+      const cropY = startY + r * rowHeight;
+      const rowCanvas = document.createElement("canvas");
+      rowCanvas.width = compositeWidth;
+      rowCanvas.height = outputSliceHeight;
+      const rowCtx = rowCanvas.getContext("2d");
+
+      rowCtx?.drawImage(
+        img,
+        startX,
+        cropY,
+        effectiveWidth,
+        rowHeight,
+        0,
+        0,
+        compositeWidth,
+        outputSliceHeight
+      );
+
+      for (let i = 0; i < 3; i++) {
+        const sliceCanvas = document.createElement("canvas");
+        sliceCanvas.width = 1080;
+        sliceCanvas.height = outputSliceHeight;
+        const sliceCtx = sliceCanvas.getContext("2d");
+        sliceCtx?.drawImage(
+          rowCanvas,
+          sliceOffsets[i],
+          0,
+          1080,
+          outputSliceHeight,
+          0,
+          0,
+          1080,
+          outputSliceHeight
+        );
+        cropped.push(sliceCanvas.toDataURL("image/png"));
+      }
+    }
+  } else if (typeValue === "Carousel") {
+    const aspectRatio = 4 / 5;
+    const totalCols = cols;
+    let targetWidth = originalWidth / totalCols;
+    let targetHeight = targetWidth / aspectRatio;
+    if (targetHeight > originalHeight) {
+      targetHeight = originalHeight;
+      targetWidth = targetHeight * aspectRatio;
+    }
+    const startX = (originalWidth - targetWidth * totalCols) / 2;
+    const startY = (originalHeight - targetHeight) / 2;
+
+    for (let c = 0; c < totalCols; c++) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1350;
+      const ctx = canvas.getContext("2d");
+      ctx?.drawImage(
+        img,
+        startX + c * targetWidth,
+        startY,
+        targetWidth,
+        targetHeight,
+        0,
+        0,
+        1080,
+        1350
+      );
+      cropped.push(canvas.toDataURL("image/png"));
+    }
+  } else if (typeValue === "Custom") {
+    const totalCols = cols;
+    const totalRows = rows;
+    const cellWidth = originalWidth / totalCols;
+    const cellHeight = originalHeight / totalRows;
+    for (let r = 0; r < totalRows; r++) {
+      for (let c = 0; c < totalCols; c++) {
+        const canvas = document.createElement("canvas");
+        canvas.width = cellWidth;
+        canvas.height = cellHeight;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(
+          img,
+          c * cellWidth,
+          r * cellHeight,
+          cellWidth,
+          cellHeight,
+          0,
+          0,
+          cellWidth,
+          cellHeight
+        );
+        cropped.push(canvas.toDataURL("image/png"));
+      }
+    }
+  }
+
+  onCropped?.(cropped);
+  URL.revokeObjectURL(imgUrl);
+
+  if (!cropped.length) throw new Error("Client crop result empty");
+};
+
   return (
     <div className="flex flex-1 flex-col gap-3 lg:grid lg:grid-cols-5 lg:gap-4 h-full">
       {/* Left section */}
