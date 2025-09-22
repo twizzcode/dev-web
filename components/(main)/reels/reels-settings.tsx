@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 const ASPECT = 0.5625; // 9:16 -> width/height = 0.5625
 const IMG_HEIGHT_RATIO = 0.75;
@@ -58,15 +58,15 @@ export const ReelsSettings: React.FC<ReelsSettingsProps> = ({ image, onReset, on
     return {destY,targetImgH:targetH};
   };
 
-  const redraw = (overrideMode?:ReelsMode,overrideColor?:string,overrideBlur?:number) => {
+  const redraw = useCallback((overrideMode?:ReelsMode,overrideColor?:string,overrideBlur?:number) => {
     if(!imgElRef.current || !canvasRef.current || !containerH) return;
     const H=containerH; const W=Math.round(H*ASPECT); const canvas=canvasRef.current; if(canvas.width!==W||canvas.height!==H){ canvas.width=W; canvas.height=H; setCanvasSize({w:W,h:H}); }
     const ctx=canvas.getContext('2d'); if(!ctx) return; const r=drawComposite(ctx,W,H,imgElRef.current,overrideMode||mode,overrideColor||customColor,overrideBlur===undefined?contentBlur:overrideBlur); setGuideRect({top:r.destY,height:r.targetImgH});
-  };
+  },[containerH,mode,customColor,contentBlur]);
 
-  useEffect(()=>{ let cancel=false; if(!image){ imgElRef.current=null; return; } (async()=>{ try{ const im=await loadImage(image); if(cancel) return; imgElRef.current=im; redraw(); }catch(e){ console.error('load fail',e);} })(); return()=>{ cancel=true; }; },[image]);
-  useEffect(()=>{ if(imgElRef.current) redraw(); },[containerH]);
-  useEffect(()=>{ if(imgElRef.current) redraw(); },[mode,customColor,contentBlur]);
+  useEffect(()=>{ let cancel=false; if(!image){ imgElRef.current=null; return; } (async()=>{ try{ const im=await loadImage(image); if(cancel) return; imgElRef.current=im; redraw(); }catch(e){ console.error('load fail',e);} })(); return()=>{ cancel=true; }; },[image,redraw]);
+  useEffect(()=>{ if(imgElRef.current) redraw(); },[containerH,redraw]);
+  useEffect(()=>{ if(imgElRef.current) redraw(); },[redraw]);
 
   useEffect(()=>{ if(!canvasRef.current) return; canvasRef.current.style.backgroundColor = mode==='white'? '#fff': mode==='black'? '#000': mode==='custom'? customColor : 'transparent'; },[mode,customColor]);
 

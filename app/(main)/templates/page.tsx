@@ -114,13 +114,42 @@ const TemplateCard: React.FC<{ group: TemplateLinkGroup; theme?: string }> = ({ 
   const isCarousel = group.mode === 'carousel';
   const selectable = group.links && group.links.length > 1 && !isCarousel;
   const handleCopy = async () => {
-    if(!group.links || !group.links.length) return; await navigator.clipboard.writeText(group.links[selected - 1]); setCopied(true); setTimeout(()=>setCopied(false), 1100);
+    if(!group.links || !group.links.length) return; await navigator.clipboard.writeText(group.links[selected - 1]); setCopied(true); setTimeout(()=>setCopied(false), 1000);
   };
+  const openLink = () => { if(group.links) window.open(group.links[selected-1], '_blank'); };
+
+  // Mini visual preview (pseudo grid representation)
+  const previewCells = (() => {
+    if(group.comingSoon) return null;
+    if(group.mode==='carousel') return (
+      <div className="flex h-full w-full gap-1">
+        {Array.from({length: Math.min(5, (group.links?.length||1)*3)}, (_,i)=>(
+          <div key={i} className="flex-1 rounded-sm bg-gradient-to-br from-violet-500/30 via-fuchsia-500/30 to-pink-500/30 border border-white/10" />
+        ))}
+      </div>
+    );
+    // grid modes
+    const rows = selected; // using selected variant (3 x N)
+    return (
+      <div className="flex flex-col h-full w-full gap-[3px]">
+        {Array.from({length: rows}, (_,r)=>(
+          <div key={r} className="grid grid-cols-3 gap-[3px] flex-1 min-h-0">
+            {Array.from({length:3},(_,c)=>(
+              <div key={c} className={`rounded-sm border border-white/10 bg-gradient-to-br ${group.mode==='with-gap'? 'from-violet-500/25 via-fuchsia-500/25 to-pink-500/25':'from-violet-500/15 via-fuchsia-500/15 to-pink-500/15'} relative overflow-hidden`}>
+                <span className="absolute inset-0 opacity-0 group-hover:opacity-60 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.25),transparent_60%)] transition" />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  })();
+
   return (
-    <div className={`relative group rounded-xl border bg-gradient-to-b from-background/70 to-background/40 backdrop-blur-sm p-4 flex flex-col gap-4 overflow-hidden ${group.comingSoon? 'opacity-70':''}`}>
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition duration-700 pointer-events-none" style={{ backgroundImage:'radial-gradient(circle_at_30%_20%,rgba(168,85,247,0.15),transparent_60%)' }} />
+    <div className={`relative group rounded-2xl border bg-gradient-to-b from-background/70 to-background/30 backdrop-blur-md p-4 flex flex-col gap-4 overflow-hidden ${group.comingSoon? 'opacity-70':''}`}>
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition duration-700 pointer-events-none" style={{ backgroundImage:'radial-gradient(circle_at_30%_20%,rgba(168,85,247,0.18),transparent_60%)' }} />
       <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col">
+        <div className="flex flex-col pr-2">
           <h3 className="font-semibold text-sm tracking-tight flex items-center gap-2">
             {group.label}
             {group.comingSoon && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-400/30">Coming Soon</span>}
@@ -129,21 +158,46 @@ const TemplateCard: React.FC<{ group: TemplateLinkGroup; theme?: string }> = ({ 
             {group.description}
           </p>
         </div>
+        {!group.comingSoon && (
+          <div className="w-28 h-24 rounded-md border border-white/10 bg-black/20 dark:bg-white/5 p-1 overflow-hidden relative">
+            <div className="absolute inset-0 opacity-40 group-hover:opacity-70 bg-[radial-gradient(circle_at_60%_40%,rgba(255,255,255,0.15),transparent_65%)] transition" />
+            {previewCells}
+          </div>
+        )}
       </div>
       {group.links && !group.comingSoon && (
         <div className="flex flex-col gap-3 mt-auto">
           {selectable && (
-            <select value={selected} onChange={e=>setSelected(Number(e.target.value))} className="h-9 text-[11px] rounded-full border bg-background/70 px-3 pr-6">
-              {group.links.map((_,i)=> (
-                <option key={i} value={i+1}>3 x {i+1} = {group.mode==='with-gap'? '3130px':'3110px'} x {(i+1)*1350}px</option>
-              ))}
-            </select>
+            <div className="flex flex-wrap gap-1.5">
+              {group.links!.map((_,i)=>{
+                const active = selected === (i+1);
+                return (
+                  <button key={i} onClick={()=>setSelected(i+1)} className={`h-7 px-3 rounded-full text-[10px] font-medium border transition ${(active?'bg-primary text-primary-foreground border-primary shadow-sm':'hover:bg-muted/60 border-border/60 text-muted-foreground')} `}>
+                    3 x {i+1}
+                  </button>
+                );
+              })}
+            </div>
           )}
-          <div className="flex items-center gap-2">
-            <button onClick={()=> window.open(group.links![selected - 1],'_blank')} className="flex-1 h-9 rounded-full text-[11px] font-medium bg-muted/50 hover:bg-muted transition text-left px-4 truncate">
-              {group.links![selected - 1]}
-            </button>
-            <button onClick={handleCopy} className={`h-9 px-4 rounded-full text-[11px] font-semibold transition ${copied? 'bg-emerald-500 text-emerald-950':'bg-primary text-primary-foreground hover:opacity-90'}`}>{copied? 'Copied':'Copy'}</button>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              <span className="px-2 py-0.5 rounded-full bg-muted/40 border border-border/50">{isCarousel? 'Carousel':'Grid'}</span>
+              {!isCarousel && <span className="px-2 py-0.5 rounded-full bg-muted/40 border border-border/50">3 x {selected}</span>}
+              {!isCarousel && <span>{group.mode==='with-gap'? '3130px':'3110px'} × {selected*1350}px</span>}
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={openLink} className="flex-1 h-9 rounded-full text-[11px] font-medium bg-muted/50 hover:bg-muted transition text-left px-4 truncate group/link relative">
+                <span className="absolute inset-0 rounded-full opacity-0 group-hover/link:opacity-100 bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 transition" />
+                <span className="relative">{group.links![selected - 1]}</span>
+              </button>
+              <button onClick={handleCopy} className={`h-9 px-4 rounded-full text-[11px] font-semibold transition relative overflow-hidden ${copied? 'bg-emerald-500 text-emerald-950':'bg-primary text-primary-foreground hover:opacity-90'}`}>
+                <span className="relative z-10">{copied? 'Copied':'Copy'}</span>
+                <span className="absolute inset-0 opacity-0 group-hover:opacity-30 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.4),transparent_60%)] transition" />
+              </button>
+            </div>
+            <div className="flex justify-end">
+              <button onClick={()=>{ openLink(); }} className="text-[10px] font-medium text-primary hover:underline">Open Preview</button>
+            </div>
           </div>
         </div>
       )}
@@ -153,7 +207,7 @@ const TemplateCard: React.FC<{ group: TemplateLinkGroup; theme?: string }> = ({ 
           Sedang disiapkan
         </div>
       )}
-      <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-gradient-to-tr from-violet-600/10 via-fuchsia-500/10 to-pink-500/10 blur-2xl" />
+      <div className="absolute -top-16 -right-16 w-52 h-52 rounded-full bg-gradient-to-tr from-violet-600/10 via-fuchsia-500/10 to-pink-500/10 blur-2xl" />
     </div>
   );
 };

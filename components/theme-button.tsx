@@ -5,12 +5,6 @@ import { Button } from "@/components/ui/button";
 
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 const ThemeButton = () => {
   const { setTheme } = useTheme();

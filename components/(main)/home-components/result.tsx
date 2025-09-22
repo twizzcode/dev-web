@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Heart } from "lucide-react";
 
@@ -22,8 +23,8 @@ const Result: React.FC<ResultProps> = ({ images, onBack, onReset }) => {
   const downloadAll = async () => {
     // Lazy create a zip via JSZip if installed; fallback sequential downloads
     try {
-      // @ts-ignore dynamic import attempt
-      const JSZip = (await import("jszip")).default;
+      const JSZipMod = await import("jszip");
+      const JSZip = JSZipMod.default;
       const zip = new JSZip();
       images.forEach((data, i) => {
         const base64 = data.split(",")[1];
@@ -74,9 +75,11 @@ const Result: React.FC<ResultProps> = ({ images, onBack, onReset }) => {
                   key={i}
                   className="group relative border rounded-lg overflow-hidden bg-muted"
                 >
-                  <img
+                  <Image
                     src={src}
                     alt={`crop-${i + 1}`}
+                    width={1080}
+                    height={1350}
                     className="object-cover w-full h-full aspect-[4/5]"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">

@@ -41,17 +41,19 @@ export async function POST(req: NextRequest) {
       if (payload.mode === 'Grid') buffers = await cropGrid(arrBuf, meta, payload);
       else if (payload.mode === 'Carousel') buffers = await cropCarousel(arrBuf, meta, payload);
       else if (payload.mode === 'Custom') buffers = await cropCustom(arrBuf, meta, payload);
-    } catch (cropErr: any) {
-      console.error('[crop] processing error', cropErr);
-      return NextResponse.json({ error: 'Crop processing failed', detail: cropErr?.message || 'unknown' }, { status: 500 });
+    } catch (cropErr) {
+      const err = cropErr as Error;
+      console.error('[crop] processing error', err);
+      return NextResponse.json({ error: 'Crop processing failed', detail: err.message || 'unknown' }, { status: 500 });
     }
 
   const fmt = payload.format || 'png';
   const mime = fmt === 'png' ? 'image/png' : fmt === 'jpeg' ? 'image/jpeg' : fmt === 'webp' ? 'image/webp' : 'image/avif';
     const slices = buffers.map((buf, i) => ({ index: i, dataUrl: `data:${mime};base64,${buf.toString('base64')}` }));
     return NextResponse.json({ type: 'array', slices });
-  } catch (e:any) {
-    console.error('Crop API error (outer)', e);
-    return NextResponse.json({ error: 'Server error', detail: e?.message || 'unknown' }, { status: 500 });
+  } catch (e) {
+    const err = e as Error;
+    console.error('Crop API error (outer)', err);
+    return NextResponse.json({ error: 'Server error', detail: err.message || 'unknown' }, { status: 500 });
   }
 }

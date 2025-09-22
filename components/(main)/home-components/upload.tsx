@@ -15,15 +15,16 @@ interface HomeUploadProps {
 }
 
 const HomeUpload: React.FC<HomeUploadProps> = ({ onComplete }) => {
-  const [files, setFiles] = React.useState<any[]>([]);
+  interface UploadFileItem { file?: File; progress: number; failed?: boolean }
+  const [files, setFiles] = React.useState<UploadFileItem[]>([]);
 
   // Call onComplete when all files present are completed (progress===100 and not failed)
   useEffect(() => {
     if (!onComplete) return;
     if (files.length === 0) return;
-    const eligible = files.filter((f:any)=>!f.failed);
-    if (eligible.length > 0 && eligible.every((f:any)=>f.progress >= 100)) {
-      onComplete(eligible.map((f:any)=>f.file).filter(Boolean));
+    const eligible = files.filter(f=>!f.failed);
+    if (eligible.length > 0 && eligible.every(f=>f.progress >= 100)) {
+      onComplete(eligible.map(f=>f.file!).filter(Boolean));
     }
   }, [files, onComplete]);
   return (
@@ -36,7 +37,6 @@ const HomeUpload: React.FC<HomeUploadProps> = ({ onComplete }) => {
             numSquares={50}
             maxOpacity={0.05}
             duration={1}
-            repeatDelay={1}
             className={cn(
               "pointer-events-none opacity-50 absolute inset-0 [mask-image:radial-gradient(600px_circle_at_center,white,transparent)]",
               "skew-y-12"
@@ -83,7 +83,7 @@ const HomeUpload: React.FC<HomeUploadProps> = ({ onComplete }) => {
           {/* Right Panel */}
           <div className="relative z-10 flex-1 rounded-lg p-4 flex items-center justify-center overflow-hidden">
             <div className="w-full max-w-md relative rounded-xl">
-              {files.filter((f:any)=>!f.failed).length === 0 && (
+              {files.filter(f=>!f.failed).length === 0 && (
                 <>
                   <BorderBeam
                     duration={6}

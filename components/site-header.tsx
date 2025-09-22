@@ -5,7 +5,6 @@ import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import ThemeButton from "@/components/theme-button"
 import { usePathname } from "next/navigation"
-import { use } from "react"
 
 // Helper function to capitalize first letter of a string
 const capitalizeFirstLetter = (string: string): string => {

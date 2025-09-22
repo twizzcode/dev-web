@@ -63,8 +63,10 @@ const SettingHomeComponents: React.FC<SettingHomeComponentsProps> = ({ files = [
           console.error(message);
           throw new Error(message);
         }
-        const data = await res.json();
-        const images: string[] = (data.slices || []).map((s:any)=> s.dataUrl);
+        interface ServerSlice { index: number; dataUrl: string }
+        interface ServerResponse { type: 'array'; slices?: ServerSlice[] }
+        const data: ServerResponse = await res.json();
+        const images: string[] = (data.slices || []).map((s)=> s.dataUrl);
         onCropped?.(images);
         return;
       }
@@ -204,7 +206,7 @@ const SettingHomeComponents: React.FC<SettingHomeComponentsProps> = ({ files = [
           <LivePreview file={firstImageFile} mode={typeValue} gap={gridGap} rows={rows} cols={cols} />
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <UploadBox onSelect={(files)=> onBack ? null : undefined} />
+            <UploadBox onSelect={()=> onBack ? null : undefined} />
           </div>
         )}
       </div>

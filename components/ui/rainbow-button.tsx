@@ -3,8 +3,7 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, VariantProps } from "class-variance-authority";
 import React from "react";
 
-interface RainbowButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {}
+// Removed duplicate empty interface to satisfy eslint no-empty-object-type
 
 const rainbowButtonVariants = cva(
   cn(
@@ -37,11 +36,7 @@ const rainbowButtonVariants = cva(
   },
 );
 
-interface RainbowButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof rainbowButtonVariants> {
-  asChild?: boolean;
-}
+interface RainbowButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof rainbowButtonVariants> { asChild?: boolean }
 
 const RainbowButton = React.forwardRef<HTMLButtonElement, RainbowButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
