@@ -20,28 +20,8 @@ const Result: React.FC<ResultProps> = ({ images, onBack, onReset }) => {
     a.remove();
   };
 
-  const downloadAll = async () => {
-    // Lazy create a zip via JSZip if installed; fallback sequential downloads
-    try {
-      const JSZipMod = await import("jszip");
-      const JSZip = JSZipMod.default;
-      const zip = new JSZip();
-      images.forEach((data, i) => {
-        const base64 = data.split(",")[1];
-        zip.file(`crop-${i + 1}.png`, base64, { base64: true });
-      });
-      const blob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "crops.zip";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      images.forEach((img, i) => downloadOne(img, i));
-    }
+  const downloadAll = () => {
+    images.forEach((img, i) => downloadOne(img, i));
   };
 
   return (
