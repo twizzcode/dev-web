@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 
+// Force this route to run on the Node.js runtime (needed for sharp on Vercel)
+export const runtime = 'nodejs';
+// (Optional) uncomment if you want to hint region placement
+// export const preferredRegion = 'auto';
+
 interface CropRequest {
   image: string; // base64 encoded image
   type: 'Grid' | 'Carousel' | 'Custom';
