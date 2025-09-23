@@ -1,7 +1,11 @@
 {
   "functions": {
     "app/api/crop/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "runtime": "nodejs20.x"
+    },
+    "app/api/crop-test/route.ts": {
+      "runtime": "nodejs20.x"
     }
   },
   "crons": []
