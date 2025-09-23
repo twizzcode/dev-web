@@ -3,10 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+type JsonRecord = Record<string, unknown>;
+
 export async function POST(req: NextRequest) {
-  let payload: any = null;
-  try { payload = await req.json(); } catch {}
-  return NextResponse.json({ ok: true, route: 'crop-test', received: typeof payload === 'object', time: Date.now() });
+  let payload: unknown = null;
+  try { payload = (await req.json()) as unknown; } catch {}
+  const received = typeof payload === 'object' && payload !== null;
+  return NextResponse.json({ ok: true, route: 'crop-test', received, time: Date.now() });
 }
 
 export async function GET() {

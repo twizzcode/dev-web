@@ -8,9 +8,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  let json: any = null;
-  try { json = await req.json(); } catch {}
-  return NextResponse.json({ ok: true, endpoint: 'diagnostic', method: 'POST', gotBody: !!json, time: Date.now() });
+  let json: unknown = null;
+  try { json = (await req.json()) as unknown; } catch {}
+  const gotBody = typeof json === 'object' && json !== null;
+  return NextResponse.json({ ok: true, endpoint: 'diagnostic', method: 'POST', gotBody, time: Date.now() });
 }
 
 export async function OPTIONS() {
