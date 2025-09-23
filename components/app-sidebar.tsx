@@ -156,11 +156,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const userFromSession = isAuthenticated && session?.user ? {
     name: session.user.name ?? "User",
     email: session.user.email ?? "",
-    avatar: session.user.image ?? "/avatars/default.jpg",
+  avatar: session.user.image ?? "/avatars/default.svg",
   } : {
     name: "Guest",
     email: "guest@example.com",
-    avatar: "/avatars/default.jpg",
+  avatar: "/avatars/default.svg",
   }
 
   return (
