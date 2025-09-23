@@ -24,7 +24,6 @@ const SettingHomeComponents: React.FC<SettingHomeComponentsProps> = ({ files = [
   const [rows, setRows] = React.useState(1);
   const [cols, setCols] = React.useState(1);
   const [cropping, setCropping] = React.useState(false);
-  const [processingMode, setProcessingMode] = React.useState<'client'|'server'>('client');
 
   // Reset hidden dimension to 1 when it becomes hidden (mirrors earlier behavior)
   React.useEffect(() => {
@@ -40,65 +39,18 @@ const SettingHomeComponents: React.FC<SettingHomeComponentsProps> = ({ files = [
   }, [files]);
 
   const handleCrop = async () => {
-  if (!firstImageFile) return;
-  setCropping(true);
-  try {
-    if (processingMode === "server") {
-      await cropOnServer(firstImageFile);
-      return;
-    }
-
-    // coba client dulu
+    if (!firstImageFile) return;
+    setCropping(true);
     try {
       await cropOnClient(firstImageFile);
-    } catch (err) {
-      console.warn("⚠️ Client crop gagal, fallback ke server...", err);
-      await cropOnServer(firstImageFile);
+    } catch (e) {
+      console.error("❌ Crop failed:", e);
+    } finally {
+      setCropping(false);
     }
-  } catch (e) {
-    console.error("❌ Crop totally failed:", e);
-  } finally {
-    setCropping(false);
-  }
-};
+  };
 
 // =============== Helpers ===============
-
-const cropOnServer = async (file: File) => {
-  const fd = new FormData();
-  fd.append("file", file);
-  fd.append(
-    "payload",
-    JSON.stringify({
-      mode: typeValue,
-      rows,
-      cols,
-      gap: gridGap,
-      format: "png",
-      quality: 100,
-      lossless: true,
-    })
-  );
-
-  const res = await fetch("/api/crop", { method: "POST", body: fd });
-  if (!res.ok) {
-    const msg = await res.text();
-    throw new Error(`Server crop failed: ${msg}`);
-  }
-
-  interface ServerSlice {
-    index: number;
-    dataUrl: string;
-  }
-  interface ServerResponse {
-    type: "array";
-    slices?: ServerSlice[];
-  }
-
-  const data: ServerResponse = await res.json();
-  const images: string[] = (data.slices || []).map((s) => s.dataUrl);
-  onCropped?.(images);
-};
 
 const cropOnClient = async (file: File) => {
   const arrayBuffer = await file.arrayBuffer();
@@ -278,21 +230,6 @@ const cropOnClient = async (file: File) => {
             <GapSegmented value={gridGap} onChange={setGridGap} />
           </div>
         )}
-        <div className="mt-4 flex flex-col gap-2">
-          <span className="font-bold text-xs">Processing</span>
-          <div className="inline-flex rounded-full bg-muted/60 ring-1 ring-border p-1 text-[10px]">
-            {(['client','server'] as const).map(m => {
-              const active = processingMode===m;
-              return (
-                <button key={m} type="button" onClick={()=>setProcessingMode(m)}
-                  className={["px-3 py-1 rounded-full font-medium transition-colors", active?"bg-primary/90 text-primary-foreground":"text-muted-foreground hover:text-foreground"].join(' ')}>
-                  {m === 'client' ? 'Client' : 'Server'}
-                </button>
-              )
-            })}
-          </div>
-          <p className="text-[9px] text-muted-foreground leading-snug max-w-xs">Client cepat & hemat bandwidth. Server untuk gambar besar / device lemah.</p>
-        </div>
         {typeValue !== 'Custom' && (
           <p className="mt-3 text-[11px] font-medium text-muted-foreground">
             {typeValue === 'Grid' ? (
