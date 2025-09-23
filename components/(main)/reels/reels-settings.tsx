@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 const ASPECT = 0.5625; // 9:16 -> width/height = 0.5625
@@ -65,8 +66,8 @@ export const ReelsSettings: React.FC<ReelsSettingsProps> = ({ image, onReset, on
   const redraw = useCallback((overrideMode?:ReelsMode,overrideColor?:string,overrideBlur?:number) => {
     if(!imgElRef.current || !canvasRef.current || !containerSize.h || !containerSize.w) return;
     // Fit 9:16 (width/height = 0.5625) fully inside available container while maximizing size
-    let availW = containerSize.w;
-    let availH = containerSize.h;
+    const availW = containerSize.w;
+    const availH = containerSize.h;
     let H = availH;
     let W = H * ASPECT; // width derived from height
     if (W > availW) { // too wide, constrain by width instead

@@ -107,8 +107,7 @@ const Result: React.FC<ResultProps> = ({ images, onBack, onReset }) => {
     // Sequential small delay to avoid freeze di device lemah
     for (let i = 0; i < images.length; i++) {
       downloadOne(images[i], i);
-      // jeda kecil (optional) - comment jika tidak perlu
-      // eslint-disable-next-line no-await-in-loop
+  // jeda kecil (optional) - comment jika tidak perlu
       await new Promise(r => setTimeout(r, 60));
     }
     downloadingRef.current = false;

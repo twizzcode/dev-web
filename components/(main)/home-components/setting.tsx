@@ -84,16 +84,15 @@ const SettingHomeComponents: React.FC<SettingHomeComponentsProps> = ({
 
   /* ------------------------- UTIL: File -> Data URL ------------------------ */
   // Konversi file ke data URL base64 untuk dikirim ke server (mode server)
-  const fileToDataUrl = async (file: File) => {
-    const buffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    let binary = "";
-    // Potong per chunk agar tidak melebihi call stack pada file besar
-    for (let i = 0; i < bytes.length; i += 0x8000) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-    }
-    return `data:${file.type};base64,${btoa(binary)}`;
-  };
+  // const fileToDataUrl = async (file: File) => {
+  //   const buffer = await file.arrayBuffer();
+  //   const bytes = new Uint8Array(buffer);
+  //   let binary = "";
+  //   for (let i = 0; i < bytes.length; i += 0x8000) {
+  //     binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  //   }
+  //   return `data:${file.type};base64,${btoa(binary)}`;
+  // };
 
   /* ---------------------------- CROP: CLIENT SIDE ------------------------- */
   const cropOnClient = React.useCallback(
@@ -674,19 +673,19 @@ const SectionHeader: React.FC<{
   </div>
 );
 
-const InfoBubble: React.FC<{ kind: "blue" | "amber"; text: string }> = ({
-  kind,
-  text
-}) => {
-  const cls =
-    kind === "blue"
-      ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
-      : "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300";
-  return (
-    <div className={`mt-2 p-2 rounded-md border ${cls}`}>
-      <p className="text-[10px] font-medium">{text}</p>
-    </div>
-  );
-};
+// const InfoBubble: React.FC<{ kind: "blue" | "amber"; text: string }> = ({
+//   kind,
+//   text
+// }) => {
+//   const cls =
+//     kind === "blue"
+//       ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
+//       : "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300";
+//   return (
+//     <div className={`mt-2 p-2 rounded-md border ${cls}`}>
+//       <p className="text-[10px] font-medium">{text}</p>
+//     </div>
+//   );
+// };
 
 export default SettingHomeComponents;
