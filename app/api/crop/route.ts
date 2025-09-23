@@ -3,6 +3,8 @@ import sharp from 'sharp';
 
 // Force this route to run on the Node.js runtime (needed for sharp on Vercel)
 export const runtime = 'nodejs';
+// Force dynamic to prevent any accidental static optimization
+export const dynamic = 'force-dynamic';
 // (Optional) uncomment if you want to hint region placement
 // export const preferredRegion = 'auto';
 
@@ -14,8 +16,20 @@ interface CropRequest {
   gridGap?: 'with-gap' | 'without-gap';
 }
 
+// Reusable CORS headers (safe for same-origin too)
+const corsHeaders: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
 export async function POST(request: NextRequest) {
   try {
+    console.time('[api/crop] total');
     const body: CropRequest = await request.json();
     const { image, type, rows, cols, gridGap = 'with-gap' } = body;
 
@@ -23,7 +37,7 @@ export async function POST(request: NextRequest) {
     if (!image || !type) {
       return NextResponse.json(
         { error: 'Missing required fields' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -37,7 +51,7 @@ export async function POST(request: NextRequest) {
     if (!originalWidth || !originalHeight) {
       return NextResponse.json(
         { error: 'Could not read image dimensions' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -147,11 +161,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.timeEnd('[api/crop] total');
     return NextResponse.json({
       success: true,
       images: croppedImages,
       totalImages: croppedImages.length
-    });
+    }, { headers: corsHeaders });
 
   } catch (error) {
     console.error('Crop processing error:', error);
@@ -160,7 +175,7 @@ export async function POST(request: NextRequest) {
         error: 'Failed to process image',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
@@ -168,7 +183,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     message: 'Image cropping API endpoint',
-    methods: ['POST'],
+    methods: ['GET','POST','OPTIONS'],
     maxFileSize: '50MB'
-  });
+  }, { headers: corsHeaders });
 }
