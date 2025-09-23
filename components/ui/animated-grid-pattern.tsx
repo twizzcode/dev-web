@@ -22,6 +22,7 @@ export interface AnimatedGridPatternProps
   numSquares?: number;
   maxOpacity?: number;
   duration?: number;
+  maxCyclesPerSquare?: number; // safety cap
 }
 
 export function AnimatedGridPattern({
@@ -34,48 +35,67 @@ export function AnimatedGridPattern({
   className,
   maxOpacity = 0.5,
   duration = 4,
+  maxCyclesPerSquare = 2,
   ...props
 }: AnimatedGridPatternProps) {
   const id = useId();
-  const containerRef = useRef(null);
+  const containerRef = useRef<SVGSVGElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
+  const cyclesRef = useRef<Record<number, number>>({});
+  const frameRef = useRef<number | null>(null);
+  const pendingUpdatesRef = useRef<Set<number>>(new Set());
+
   const getPos = useCallback(() => {
+    if (!dimensions.width || !dimensions.height) return [0, 0];
     return [
       Math.floor((Math.random() * dimensions.width) / width),
       Math.floor((Math.random() * dimensions.height) / height),
     ];
   }, [dimensions.width, dimensions.height, width, height]);
 
-  // Adjust the generateSquares function to return objects with an id, x, and y
-  const generateSquares = useCallback((count: number) =>
-    Array.from({ length: count }, (_, i) => ({ id: i, pos: getPos() })), 
-    [getPos]);
+  const generateSquares = useCallback(
+    (count: number) => Array.from({ length: count }, (_, i) => ({ id: i, pos: getPos() })),
+    [getPos],
+  );
 
   const [squares, setSquares] = useState(() => generateSquares(numSquares));
 
-  // Function to update a single square's position
-  const updateSquarePosition = useCallback((id: number) => {
-    setSquares((currentSquares) =>
-      currentSquares.map((sq) =>
-        sq.id === id
-          ? {
-              ...sq,
-              pos: getPos(),
-            }
+  const flushPending = useCallback(() => {
+    if (pendingUpdatesRef.current.size === 0) return;
+    setSquares((current) =>
+      current.map((sq) =>
+        pendingUpdatesRef.current.has(sq.id)
+          ? { ...sq, pos: getPos() }
           : sq,
       ),
     );
+    pendingUpdatesRef.current.clear();
+    frameRef.current = null;
   }, [getPos]);
 
-  // Update squares to animate in
+  const queueUpdate = useCallback(
+    (id: number) => {
+      const used = cyclesRef.current[id] || 0;
+      if (used >= maxCyclesPerSquare) return; // cap
+      cyclesRef.current[id] = used + 1;
+      pendingUpdatesRef.current.add(id);
+      if (frameRef.current == null) {
+        frameRef.current = requestAnimationFrame(flushPending);
+      }
+    },
+    [flushPending, maxCyclesPerSquare],
+  );
+
+  useEffect(() => () => { if (frameRef.current) cancelAnimationFrame(frameRef.current); }, []);
+
   useEffect(() => {
     if (dimensions.width && dimensions.height) {
+      cyclesRef.current = {};
       setSquares(generateSquares(numSquares));
     }
   }, [dimensions, numSquares, generateSquares]);
 
-  // Resize observer to update container dimensions
   useEffect(() => {
     const node = containerRef.current;
     if (!node) return;
@@ -88,9 +108,7 @@ export function AnimatedGridPattern({
       }
     });
     resizeObserver.observe(node);
-    return () => {
-      resizeObserver.unobserve(node);
-    };
+    return () => resizeObserver.disconnect();
   }, []);
 
   return (
@@ -104,41 +122,25 @@ export function AnimatedGridPattern({
       {...props}
     >
       <defs>
-        <pattern
-          id={id}
-          width={width}
-          height={height}
-          patternUnits="userSpaceOnUse"
-          x={x}
-          y={y}
-        >
-          <path
-            d={`M.5 ${height}V.5H${width}`}
-            fill="none"
-            strokeDasharray={strokeDasharray}
-          />
+        <pattern id={id} width={width} height={height} patternUnits="userSpaceOnUse" x={x} y={y}>
+          <path d={`M.5 ${height}V.5H${width}`} fill="none" strokeDasharray={strokeDasharray} />
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill={`url(#${id})`} />
       <svg x={x} y={y} className="overflow-visible">
-        {squares.map(({ pos: [x, y], id }, index) => (
+        {squares.map(({ pos: [sx, sy], id }, index) => (
           <motion.rect
+            key={`${id}-${index}-${sx}-${sy}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: maxOpacity }}
-            transition={{
-              duration,
-              repeat: 1,
-              delay: index * 0.1,
-              repeatType: "reverse",
-            }}
-            onAnimationComplete={() => updateSquarePosition(id)}
-            key={`${x}-${y}-${index}`}
+            transition={{ duration, repeat: 1, delay: index * 0.1, repeatType: "reverse" }}
+            onAnimationComplete={() => queueUpdate(id)}
             width={width - 1}
             height={height - 1}
-            x={x * width + 1}
-            y={y * height + 1}
+            x={sx * width + 1}
+            y={sy * height + 1}
             fill="currentColor"
-            strokeWidth="0"
+            strokeWidth={0}
           />
         ))}
       </svg>

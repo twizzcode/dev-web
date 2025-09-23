@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Optimize for Vercel deployment
+  serverExternalPackages: ['sharp'],
+  // Optimize images
+  images: {
+    formats: ['image/webp', 'image/avif'],
+  }
 };
 
 export default nextConfig;
