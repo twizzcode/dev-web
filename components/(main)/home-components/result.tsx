@@ -2,7 +2,7 @@
 import React from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Heart } from "lucide-react";
+import { Heart, Download } from "lucide-react";
 
 interface ResultProps {
   images: string[]; // data URLs
@@ -10,19 +10,109 @@ interface ResultProps {
   onReset?: () => void; // go back to very beginning (upload)
 }
 
-const Result: React.FC<ResultProps> = ({ images, onBack, onReset }) => {
-  const downloadOne = (src: string, index: number) => {
-    const a = document.createElement("a");
-    a.href = src;
-    a.download = `crop-${index + 1}.png`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  };
+// Lazy image item (IntersectionObserver) to avoid decoding semua langsung
+interface LazyItemProps {
+  src: string;
+  index: number;
+  onDownload: (src: string, index: number) => void;
+}
 
-  const downloadAll = () => {
-    images.forEach((img, i) => downloadOne(img, i));
-  };
+const LazyImageItem: React.FC<LazyItemProps> = ({ src, index, onDownload }) => {
+  const ref = React.useRef<HTMLDivElement | null>(null);
+  const [inView, setInView] = React.useState(false);
+  const [loaded, setLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!ref.current) return;
+    const observer = new IntersectionObserver(
+      entries => {
+        const entry = entries[0];
+        if (entry.isIntersecting) {
+            setInView(true);
+            observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className="group relative border rounded-lg overflow-hidden bg-muted aspect-[4/5]"
+    >
+      {inView ? (
+        <Image
+          src={src}
+          alt={`crop-${index + 1}`}
+          width={432} // thumbnail decode lebih kecil (browser tetap decode, tapi layout ringan)
+          height={540}
+          onLoad={() => setLoaded(true)}
+          loading="lazy"
+          className={`object-cover w-full h-full transition-opacity duration-300 ${
+            loaded ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      ) : (
+        <div className="w-full h-full animate-pulse bg-gradient-to-br from-muted/60 to-muted/30" />
+      )}
+      {/* Top-left index badge */}
+      <span className="absolute top-1 left-1 text-[10px] bg-background/70 backdrop-blur px-1 rounded font-medium">
+        #{index + 1}
+      </span>
+      {/* Top-right download button */}
+      <button
+        onClick={() => onDownload(src, index)}
+        aria-label={`Download image ${index + 1}`}
+        className="absolute top-1 right-1 inline-flex items-center justify-center rounded-md bg-background/70 backdrop-blur text-foreground/80 hover:text-foreground hover:bg-background px-1 py-1 transition shadow-sm border border-border/60"
+      >
+        <Download className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+};
+
+const Result: React.FC<ResultProps> = ({ images, onBack, onReset }) => {
+  const downloadOne = React.useCallback((src: string, index: number) => {
+    // Gunakan blob supaya beberapa browser HP lebih stabil daripada data URL langsung
+    fetch(src)
+      .then(r => r.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `crop-${index + 1}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      })
+      .catch(() => {
+        // fallback langsung data url
+        const a = document.createElement("a");
+        a.href = src;
+        a.download = `crop-${index + 1}.png`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
+  }, []);
+
+  const downloadingRef = React.useRef(false);
+  const downloadAll = React.useCallback(async () => {
+    if (downloadingRef.current) return;
+    downloadingRef.current = true;
+    // Sequential small delay to avoid freeze di device lemah
+    for (let i = 0; i < images.length; i++) {
+      downloadOne(images[i], i);
+      // jeda kecil (optional) - comment jika tidak perlu
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise(r => setTimeout(r, 60));
+    }
+    downloadingRef.current = false;
+  }, [images, downloadOne]);
 
   return (
   <div className="grid grid-rows-[3fr_2fr] gap-3 lg:grid-rows-1 lg:grid-cols-5 lg:gap-4 flex-1 h-[calc(100vh-80px)] overflow-hidden">
@@ -51,30 +141,12 @@ const Result: React.FC<ResultProps> = ({ images, onBack, onReset }) => {
           ) : (
             <div className="grid gap-1 md:gap-2 grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3">
               {images.map((src, i) => (
-                <div
+                <LazyImageItem
                   key={i}
-                  className="group relative border rounded-lg overflow-hidden bg-muted"
-                >
-                  <Image
-                    src={src}
-                    alt={`crop-${i + 1}`}
-                    width={1080}
-                    height={1350}
-                    className="object-cover w-full h-full aspect-[4/5]"
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => downloadOne(src, i)}
-                    >
-                      Download
-                    </Button>
-                  </div>
-                  <span className="absolute top-1 left-1 text-[10px] bg-background/70 backdrop-blur px-1 rounded">
-                    #{i + 1}
-                  </span>
-                </div>
+                  src={src}
+                  index={i}
+                  onDownload={downloadOne}
+                />
               ))}
             </div>
           )}

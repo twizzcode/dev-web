@@ -22,7 +22,7 @@ export const ReelsSettings: React.FC<ReelsSettingsProps> = ({ image, onReset, on
   const containerRef = useRef<HTMLDivElement|null>(null);
   const imgElRef = useRef<HTMLImageElement|null>(null);
 
-  const [containerH, setContainerH] = useState(0);
+  const [containerSize, setContainerSize] = useState<{w:number;h:number}>({w:0,h:0});
   const [canvasSize, setCanvasSize] = useState<{w:number;h:number}|null>(null);
   const [guideRect, setGuideRect] = useState<{top:number;height:number}|null>(null);
   const [showGuide, setShowGuide] = useState(false);
@@ -36,7 +36,11 @@ export const ReelsSettings: React.FC<ReelsSettingsProps> = ({ image, onReset, on
 
   const avgCache = useRef<Record<string,string>>({});
 
-  const measure = () => { if (containerRef.current) setContainerH(containerRef.current.clientHeight); };
+  const measure = () => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setContainerSize({ w: rect.width, h: rect.height });
+  };
   useEffect(()=>{ measure(); window.addEventListener('resize', measure); return ()=> window.removeEventListener('resize', measure); },[]);
 
   const loadImage = (src:string) => new Promise<HTMLImageElement>((res,rej)=>{ const im = new Image(); im.crossOrigin='anonymous'; im.onload=()=>res(im); im.onerror=rej; im.src=src; });
@@ -59,13 +63,25 @@ export const ReelsSettings: React.FC<ReelsSettingsProps> = ({ image, onReset, on
   },[]);
 
   const redraw = useCallback((overrideMode?:ReelsMode,overrideColor?:string,overrideBlur?:number) => {
-    if(!imgElRef.current || !canvasRef.current || !containerH) return;
-    const H=containerH; const W=Math.round(H*ASPECT); const canvas=canvasRef.current; if(canvas.width!==W||canvas.height!==H){ canvas.width=W; canvas.height=H; setCanvasSize({w:W,h:H}); }
+    if(!imgElRef.current || !canvasRef.current || !containerSize.h || !containerSize.w) return;
+    // Fit 9:16 (width/height = 0.5625) fully inside available container while maximizing size
+    let availW = containerSize.w;
+    let availH = containerSize.h;
+    let H = availH;
+    let W = H * ASPECT; // width derived from height
+    if (W > availW) { // too wide, constrain by width instead
+      W = availW;
+      H = W / ASPECT;
+    }
+    // Round to integers to avoid sub-pixel blurring differences vs export
+    W = Math.round(W);
+    H = Math.round(H);
+    const canvas=canvasRef.current; if(canvas.width!==W||canvas.height!==H){ canvas.width=W; canvas.height=H; setCanvasSize({w:W,h:H}); }
     const ctx=canvas.getContext('2d'); if(!ctx) return; const r=drawComposite(ctx,W,H,imgElRef.current,overrideMode||mode,overrideColor||customColor,overrideBlur===undefined?contentBlur:overrideBlur); setGuideRect({top:r.destY,height:r.targetImgH});
-  },[containerH,mode,customColor,contentBlur,drawComposite]);
+  },[containerSize,mode,customColor,contentBlur,drawComposite]);
 
   useEffect(()=>{ let cancel=false; if(!image){ imgElRef.current=null; return; } (async()=>{ try{ const im=await loadImage(image); if(cancel) return; imgElRef.current=im; redraw(); }catch(e){ console.error('load fail',e);} })(); return()=>{ cancel=true; }; },[image,redraw]);
-  useEffect(()=>{ if(imgElRef.current) redraw(); },[containerH,redraw]);
+  useEffect(()=>{ if(imgElRef.current) redraw(); },[containerSize,redraw]);
   useEffect(()=>{ if(imgElRef.current) redraw(); },[redraw]);
 
   useEffect(()=>{ if(!canvasRef.current) return; canvasRef.current.style.backgroundColor = mode==='white'? '#fff': mode==='black'? '#000': mode==='custom'? customColor : 'transparent'; },[mode,customColor]);
@@ -84,8 +100,12 @@ export const ReelsSettings: React.FC<ReelsSettingsProps> = ({ image, onReset, on
   return (
     <div className="flex flex-1 flex-col overflow-hidden gap-3 lg:grid lg:grid-cols-5 lg:gap-4 h-full">
       <div className="bg-sidebar p-3 lg:p-4 rounded-lg lg:col-span-3 flex flex-col flex-[3] min-h-0 lg:h-full border relative overflow-hidden">
-        <div ref={containerRef} className="flex-1 flex items-center justify-center">
-          <canvas ref={canvasRef} className={`rounded border max-w-full max-h-full transition filter ${!image? 'blur-sm opacity-60':''}`} />
+        <div ref={containerRef} className="flex-1 flex items-center justify-center relative w-full h-full">
+          <canvas
+            ref={canvasRef}
+            className={`rounded border transition filter ${!image? 'blur-sm opacity-60':''}`}
+            style={canvasSize? {width:canvasSize.w, height:canvasSize.h}:undefined}
+          />
           {!image && (
             <UploadDrop onPick={(data)=> onChangeImage?.(data)} />
           )}

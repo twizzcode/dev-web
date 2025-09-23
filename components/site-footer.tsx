@@ -2,10 +2,15 @@
 
 import * as React from "react"
 import { IconBrandGithub, IconHeart } from "@tabler/icons-react"
+import { cn } from "@/lib/utils"
 
-export function SiteFooter() {
+interface SiteFooterProps {
+  className?: string;
+}
+
+export function SiteFooter({ className }: SiteFooterProps) {
   return (
-    <footer className="border-t py-3 px-4">
+    <footer className={cn("border-t py-3 px-4", className)}>
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center">
           <span className="text-muted-foreground">
