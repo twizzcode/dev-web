@@ -24,7 +24,7 @@ interface ImageUploadProps {
 }
 
 export const ImageUpload: React.FC<ImageUploadProps> = ({
-  maxSizeMB = 30,
+  maxSizeMB = 40,
   accept = ["image/png", "image/jpeg"],
   onComplete,
   onFilesChange,
