@@ -99,8 +99,9 @@ export const ReelsSettings: React.FC<ReelsSettingsProps> = ({ image, onReset, on
   const disabled = !imgElRef.current;
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden gap-3 lg:grid lg:grid-cols-5 lg:gap-4 h-full">
-      <div className="bg-sidebar p-3 lg:p-4 rounded-lg lg:col-span-3 flex flex-col flex-[3] min-h-0 lg:h-full border relative overflow-hidden">
+    <div className="flex flex-1 flex-col gap-3 lg:grid lg:grid-cols-5 lg:gap-4 h-full">
+      {/* LEFT PREVIEW PANEL (match SettingHome) */}
+      <div className="bg-sidebar p-3 lg:p-4 rounded-lg lg:col-span-3 flex flex-col flex-1 h-full border relative">
         <div ref={containerRef} className="flex-1 flex items-center justify-center relative w-full h-full">
           <canvas
             ref={canvasRef}
@@ -117,7 +118,8 @@ export const ReelsSettings: React.FC<ReelsSettingsProps> = ({ image, onReset, on
           )}
         </div>
       </div>
-      <div className="bg-sidebar p-3 lg:p-4 rounded-lg lg:col-span-2 flex flex-col flex-[2] min-h-0 lg:h-full border overflow-hidden">
+      {/* RIGHT SETTINGS PANEL (match SettingHome) */}
+      <div className="bg-sidebar p-3 lg:p-4 rounded-lg lg:col-span-2 flex flex-col flex-1 h-full border relative">
         <div className="flex flex-col gap-4 flex-1">
           <div>
             <h3 className="font-bold text-sm mb-2">Reels Mode</h3>
