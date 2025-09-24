@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { track } from "@/lib/analytics";
 
 const ASPECT = 0.5625; // 9:16 -> width/height = 0.5625
 const IMG_HEIGHT_RATIO = 0.75;
@@ -92,6 +93,7 @@ export const ReelsSettings: React.FC<ReelsSettingsProps> = ({ image, onReset, on
   const handleColorInput=(val:string)=>{ setCustomInput(val); const trimmed=val.trim(); const hexOk=/^#([0-9a-f]{3}|([0-9a-f]{6}))$/i.test(trimmed); const fnOk=/^(rgb|rgba|hsl|hsla)\(/i.test(trimmed); if(hexOk||fnOk){ setCustomColor(trimmed); redraw(undefined,trimmed); } };
 
   const download = () => {
+    track('reels_click', mode);
     if(exporting || !imgElRef.current) return; setExporting(true);
     try { const off=document.createElement('canvas'); off.width=EXPORT_W; off.height=EXPORT_H; const ctx=off.getContext('2d'); if(!ctx) throw new Error('ctx'); drawComposite(ctx,EXPORT_W,EXPORT_H,imgElRef.current,mode,customColor,contentBlur); off.toBlob(b=>{ if(!b){ setExporting(false); return; } const url=URL.createObjectURL(b); const a=document.createElement('a'); a.href=url; a.download='reels_1080x1920.png'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); setExporting(false); },'image/png'); } catch(e){ console.error(e); setExporting(false); }
   };

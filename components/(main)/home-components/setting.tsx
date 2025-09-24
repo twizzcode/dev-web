@@ -12,6 +12,7 @@ import {
   IconPlus
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
+import { track } from "@/lib/analytics";
 
 /* -------------------------------------------------------------------------- */
 /*                                TYPE & CONSTS                               */
@@ -257,6 +258,7 @@ const SettingHomeComponents: React.FC<SettingHomeComponentsProps> = ({
   /* ---------------------------- HANDLE UTAMA BUTTON ----------------------- */
   const handleCrop = React.useCallback(async () => {
     if (!firstImageFile) return;
+    track("cutter_click", typeValue);
     setCropping(true);
     setError(null);
     try {

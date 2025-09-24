@@ -7,6 +7,7 @@ import {
   IconBrandInstagram,
   IconTemplate,
   IconNotebook,
+  IconChartBar,
   IconUserCircle,
   IconCreditCard,
   IconNotification,
@@ -36,6 +37,7 @@ const items: NavItem[] = [
   { href: "/reels", label: "Reels", icon: <IconBrandInstagram className="w-5 h-5" /> },
   { href: "/templates", label: "Tpl", icon: <IconTemplate className="w-5 h-5" /> },
   { href: "/blog", label: "Blog", icon: <IconNotebook className="w-5 h-5" /> },
+  { href: "/analytics", label: "Analytic", icon: <IconChartBar className="w-5 h-5" /> },
 ];
 
 export const BottomNav: React.FC = () => {
@@ -45,7 +47,7 @@ export const BottomNav: React.FC = () => {
 
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <ul className="grid grid-cols-5 h-14">
+  <ul className="grid grid-cols-6 h-14">
         {items.map(item => {
           const active = pathname === item.href;
           return (

@@ -47,3 +47,14 @@ model Account {
  
   @@id([provider, providerAccountId])
 }
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  kind      String   // e.g., "cutter_click", "reels_click"
+  context   String?  // optional extra context (page, device)
+  userId    String?  // optional logged-in user id
+  ip        String?  // optional client IP (if captured)
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
+}
