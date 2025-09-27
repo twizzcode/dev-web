@@ -156,11 +156,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const userFromSession = isAuthenticated && session?.user ? {
     name: session.user.name ?? "User",
     email: session.user.email ?? "",
-  avatar: session.user.image ?? "/avatars/default.svg",
+    avatar: session.user.image ?? undefined,
   } : {
     name: "Guest",
     email: "guest@example.com",
-  avatar: "/avatars/default.svg",
+    avatar: undefined,
   }
 
   return (
@@ -182,7 +182,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
+        {/* <NavDocuments items={data.documents} /> */}
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

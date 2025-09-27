@@ -34,7 +34,9 @@ export function SiteFooter({ className }: SiteFooterProps) {
         <span className="text-muted-foreground">© {new Date().getFullYear()} Twizz Cutter</span>
         <div className="flex items-center gap-4 flex-wrap">
           <a
-            href="#"
+            href="https://github.com/twizzcode"
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
           >
             <IconBrandGithub className="h-4 w-4" />
