@@ -4,6 +4,21 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Heart, Download, Copy, Check } from "lucide-react";
 
+// Simple semaphore to ensure only one canvas preview is created at a time.
+let _previewBusy = false;
+
+async function _acquirePreviewSlot() {
+  // wait until slot free, poll with delay to keep it simple and robust across browsers
+  while (_previewBusy) {
+    await new Promise(r => setTimeout(r, 120));
+  }
+  _previewBusy = true;
+}
+
+function _releasePreviewSlot() {
+  _previewBusy = false;
+}
+
 interface ResultProps {
   images: string[]; // data URLs
   onBack?: () => void;
@@ -39,6 +54,12 @@ const LazyImageItem: React.FC<LazyItemProps> = ({ src, index, onDownload }) => {
     return () => observer.disconnect();
   }, []);
 
+  // detect mobile once on mount
+  const [isMobileUA] = React.useState(() => {
+    if (typeof navigator === 'undefined') return false;
+    return /Mobi|Android|iPhone|iPad|iPod|Opera Mini/i.test(navigator.userAgent || '');
+  });
+
   // create a lightweight preview (scaled) to avoid decoding full-size image on mobile
   React.useEffect(() => {
     if (!inView) return;
@@ -48,32 +69,43 @@ const LazyImageItem: React.FC<LazyItemProps> = ({ src, index, onDownload }) => {
     const createPreview = async () => {
       try {
         // Use requestIdleCallback when available so this runs when the browser is idle
-        const run = () => new Promise<void>(resolve => {
-          const imgEl = document.createElement('img');
-          imgEl.src = src;
-          imgEl.onload = () => {
-            if (cancelled) return resolve();
-            // scale down to maxWidth while preserving aspect
-            const maxWidth = 540; // smaller than original 1080
-            const iw = imgEl.naturalWidth || (imgEl.width || maxWidth);
-            const ih = imgEl.naturalHeight || (imgEl.height || Math.round(maxWidth * 1.25));
-            const scale = Math.min(1, maxWidth / iw);
-            const w = Math.max(1, Math.round(iw * scale));
-            const h = Math.max(1, Math.round(ih * scale));
-            const canvas = document.createElement('canvas');
-            canvas.width = w;
-            canvas.height = h;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return resolve();
-            ctx.drawImage(imgEl, 0, 0, w, h);
-            canvas.toBlob(blob => {
-              if (!blob || cancelled) return resolve();
-              objectUrl = URL.createObjectURL(blob);
-              setPreviewSrc(objectUrl);
-              resolve();
-            }, 'image/jpeg', 0.75);
-          };
-          imgEl.onerror = () => resolve();
+        const run = () => new Promise<void>(async resolve => {
+          // serialize heavy canvas work so weaker devices won't do many at once
+          await _acquirePreviewSlot();
+          try {
+            const imgEl = document.createElement('img');
+            imgEl.src = src;
+            imgEl.onload = () => {
+              (async () => {
+                if (cancelled) return resolve();
+                // detect simple mobile UA to choose lighter preview
+                const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+                const isMobile = /Mobi|Android|iPhone|iPad|iPod|Opera Mini/i.test(ua);
+                const maxWidth = isMobile ? 360 : 540; // mobile smaller
+                const quality = isMobile ? 0.6 : 0.75; // lower quality on mobile
+                const iw = imgEl.naturalWidth || (imgEl.width || maxWidth);
+                const ih = imgEl.naturalHeight || (imgEl.height || Math.round(maxWidth * 1.25));
+                const scale = Math.min(1, maxWidth / iw);
+                const w = Math.max(1, Math.round(iw * scale));
+                const h = Math.max(1, Math.round(ih * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return resolve();
+                ctx.drawImage(imgEl, 0, 0, w, h);
+                canvas.toBlob(blob => {
+                  if (!blob || cancelled) return resolve();
+                  objectUrl = URL.createObjectURL(blob);
+                  setPreviewSrc(objectUrl);
+                  resolve();
+                }, 'image/jpeg', quality);
+              })();
+            };
+            imgEl.onerror = () => resolve();
+          } finally {
+            _releasePreviewSlot();
+          }
         });
 
         if (typeof window !== 'undefined') {
@@ -117,15 +149,20 @@ const LazyImageItem: React.FC<LazyItemProps> = ({ src, index, onDownload }) => {
             className={`object-cover w-full h-full transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
           />
         ) : (
-          <Image
-            src={src}
-            alt={`crop-${index + 1}`}
-            width={432} // thumbnail decode lebih kecil (browser tetap decode, tapi layout ringan)
-            height={540}
-            onLoad={() => setLoaded(true)}
-            loading="lazy"
-            className={`object-cover w-full h-full transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-          />
+          // On mobile avoid decoding full-size / data URL images; show skeleton until preview available
+          isMobileUA ? (
+            <div className="w-full h-full animate-pulse bg-gradient-to-br from-muted/60 to-muted/30" />
+          ) : (
+            <Image
+              src={src}
+              alt={`crop-${index + 1}`}
+              width={432} // thumbnail decode lebih kecil (browser tetap decode, tapi layout ringan)
+              height={540}
+              onLoad={() => setLoaded(true)}
+              loading="lazy"
+              className={`object-cover w-full h-full transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+            />
+          )
         )
       ) : (
         <div className="w-full h-full animate-pulse bg-gradient-to-br from-muted/60 to-muted/30" />
