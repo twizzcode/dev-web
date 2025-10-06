@@ -14,13 +14,14 @@ interface ResultProps {
 interface LazyItemProps {
   src: string;
   index: number;
-  onDownload: (src: string, index: number) => void;
+  onDownload: (src: string, index: number) => Promise<void> | void;
 }
 
 const LazyImageItem: React.FC<LazyItemProps> = ({ src, index, onDownload }) => {
   const ref = React.useRef<HTMLDivElement | null>(null);
   const [inView, setInView] = React.useState(false);
   const [loaded, setLoaded] = React.useState(false);
+  const [previewSrc, setPreviewSrc] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!ref.current) return;
@@ -38,23 +39,94 @@ const LazyImageItem: React.FC<LazyItemProps> = ({ src, index, onDownload }) => {
     return () => observer.disconnect();
   }, []);
 
+  // create a lightweight preview (scaled) to avoid decoding full-size image on mobile
+  React.useEffect(() => {
+    if (!inView) return;
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    const createPreview = async () => {
+      try {
+        // Use requestIdleCallback when available so this runs when the browser is idle
+        const run = () => new Promise<void>(resolve => {
+          const imgEl = document.createElement('img');
+          imgEl.src = src;
+          imgEl.onload = () => {
+            if (cancelled) return resolve();
+            // scale down to maxWidth while preserving aspect
+            const maxWidth = 540; // smaller than original 1080
+            const iw = imgEl.naturalWidth || (imgEl.width || maxWidth);
+            const ih = imgEl.naturalHeight || (imgEl.height || Math.round(maxWidth * 1.25));
+            const scale = Math.min(1, maxWidth / iw);
+            const w = Math.max(1, Math.round(iw * scale));
+            const h = Math.max(1, Math.round(ih * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return resolve();
+            ctx.drawImage(imgEl, 0, 0, w, h);
+            canvas.toBlob(blob => {
+              if (!blob || cancelled) return resolve();
+              objectUrl = URL.createObjectURL(blob);
+              setPreviewSrc(objectUrl);
+              resolve();
+            }, 'image/jpeg', 0.75);
+          };
+          imgEl.onerror = () => resolve();
+        });
+
+        if (typeof window !== 'undefined') {
+          const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback;
+          if (typeof ric === 'function') {
+            ric(() => run());
+          } else {
+            // small timeout to yield
+            setTimeout(() => run(), 120);
+          }
+        } else {
+          setTimeout(() => run(), 120);
+        }
+      } catch (e) {
+        // ignore preview errors
+      }
+    };
+
+    createPreview();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [inView, src]);
+
   return (
     <div
       ref={ref}
       className="group relative border rounded-lg overflow-hidden bg-muted aspect-[4/5]"
     >
       {inView ? (
-        <Image
-          src={src}
-          alt={`crop-${index + 1}`}
-          width={432} // thumbnail decode lebih kecil (browser tetap decode, tapi layout ringan)
-          height={540}
-          onLoad={() => setLoaded(true)}
-          loading="lazy"
-          className={`object-cover w-full h-full transition-opacity duration-300 ${
-            loaded ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
+        // use lightweight preview when available to avoid heavy decoding on mobile
+        previewSrc ? (
+          <img
+            src={previewSrc}
+            alt={`crop-${index + 1}`}
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setLoaded(true)}
+            className={`object-cover w-full h-full transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          />
+        ) : (
+          <Image
+            src={src}
+            alt={`crop-${index + 1}`}
+            width={432} // thumbnail decode lebih kecil (browser tetap decode, tapi layout ringan)
+            height={540}
+            onLoad={() => setLoaded(true)}
+            loading="lazy"
+            className={`object-cover w-full h-full transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+          />
+        )
       ) : (
         <div className="w-full h-full animate-pulse bg-gradient-to-br from-muted/60 to-muted/30" />
       )}
@@ -76,45 +148,79 @@ const LazyImageItem: React.FC<LazyItemProps> = ({ src, index, onDownload }) => {
 
 const Result: React.FC<ResultProps> = ({ images, onBack, onReset }) => {
   const downloadOne = React.useCallback((src: string, index: number) => {
-    // Gunakan blob supaya beberapa browser HP lebih stabil daripada data URL langsung
-    fetch(src)
-      .then(r => r.blob())
-      .then(blob => {
+    // Return a promise so callers can await completion
+    const isDataUrl = src.startsWith('data:');
+    const fallbackClick = (href: string) => {
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = `crop-${index + 1}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
+
+    const doFetch = async () => {
+      try {
+        if (isDataUrl) {
+          // convert data url to blob
+          const res = await (async () => {
+            const arr = src.split(',');
+            const match = arr[0].match(/:(.*?);/);
+            const mime = match ? match[1] : 'image/png';
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8 = new Uint8Array(n);
+            while (n--) u8[n] = bstr.charCodeAt(n);
+            return new Blob([u8], { type: mime });
+          })();
+          const url = URL.createObjectURL(res);
+          fallbackClick(url);
+          // revoke after short delay to ensure download started
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+          return;
+        }
+
+        const r = await fetch(src);
+        const blob = await r.blob();
         const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `crop-${index + 1}.png`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      })
-      .catch(() => {
-        // fallback langsung data url
-        const a = document.createElement("a");
-        a.href = src;
-        a.download = `crop-${index + 1}.png`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      });
+        fallbackClick(url);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      } catch (e) {
+        // final fallback: try direct href click
+        try {
+          fallbackClick(src);
+        } catch {}
+      }
+    };
+
+    return doFetch();
   }, []);
 
+  const [downloadingIndex, setDownloadingIndex] = React.useState<number | null>(null);
   const downloadingRef = React.useRef(false);
   const downloadAll = React.useCallback(async () => {
     if (downloadingRef.current) return;
     downloadingRef.current = true;
-    // Sequential small delay to avoid freeze di device lemah
+    setDownloadingIndex(0);
+    // Sequential downloads to avoid CPU / memory spike on mobile
     for (let i = 0; i < images.length; i++) {
-      downloadOne(images[i], i);
-  // jeda kecil (optional) - comment jika tidak perlu
-      await new Promise(r => setTimeout(r, 60));
+      setDownloadingIndex(i);
+      // await each download to give device time to process
+      try {
+        // ensure we await the promise returned by downloadOne
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        await downloadOne(images[i], i);
+      } catch {}
+      // small delay to yield to main thread on weak devices
+      await new Promise(r => setTimeout(r, 140));
     }
+    setDownloadingIndex(null);
     downloadingRef.current = false;
   }, [images, downloadOne]);
 
   return (
-  <div className="grid grid-rows-[3fr_2fr] gap-3 lg:grid-rows-1 lg:grid-cols-5 lg:gap-4 flex-1 h-[calc(100vh-80px)] overflow-hidden">
+  <div className="grid grid-rows-[3fr_2fr] gap-3 lg:grid-rows-1 lg:grid-cols-5 lg:gap-4 flex-1 h-[calc(100vh-80px)] overflow-auto lg:overflow-hidden">
       {/* Images panel (matches Setting left: col-span-3) */}
   <div className="bg-sidebar p-4 rounded-lg lg:col-span-3 flex flex-col border overflow-hidden md:h-[calc(100vh-142px)] h-min-0">
         <div className="flex items-center gap-3 mb-4">
@@ -126,13 +232,13 @@ const Result: React.FC<ResultProps> = ({ images, onBack, onReset }) => {
               size="sm"
               variant="outline"
               onClick={downloadAll}
-              disabled={!images.length}
+              disabled={!images.length || downloadingIndex !== null}
             >
-              Download All
+              {downloadingIndex !== null ? `Downloading ${downloadingIndex + 1}/${images.length}` : 'Download All'}
             </Button>
           </div>
         </div>
-        <div className="flex-1 min-h-0 lg:overflow-y-auto overflow-visible scrollbar-thin">
+  <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-y-auto scrollbar-thin" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
           {images.length === 0 ? (
             <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
               No images.
@@ -152,7 +258,7 @@ const Result: React.FC<ResultProps> = ({ images, onBack, onReset }) => {
         </div>
       </div>
       {/* Side panel (matches Setting right: col-span-2) */}
-  <div className="bg-sidebar p-4 rounded-lg lg:col-span-2 flex flex-col border min-h-0 gap-4 overflow-hidden">
+  <div className="bg-sidebar p-4 rounded-lg lg:col-span-2 flex flex-col border min-h-0 gap-4 overflow-visible lg:overflow-hidden">
         <h2 className="text-base font-semibold">Actions</h2>
         <div className="flex flex-col gap-2">
           <Button variant="secondary" onClick={onBack} disabled={!onBack}>
@@ -161,14 +267,17 @@ const Result: React.FC<ResultProps> = ({ images, onBack, onReset }) => {
           <Button variant="outline" onClick={onReset} disabled={!onReset}>
             Restart
           </Button>
-          <Button onClick={downloadAll} disabled={!images.length}>
-            Download All
+          <Button onClick={downloadAll} disabled={!images.length || downloadingIndex !== null}>
+            {downloadingIndex !== null ? `Downloading ${downloadingIndex + 1}/${images.length}` : 'Download All'}
           </Button>
         </div>
   <DonateSection />
         <div className="mt-auto space-y-2 text-xs text-muted-foreground">
           <p>Tip: Hover an image to download just that slice.</p>
           <p>Each slice exported at 1080x1350.</p>
+          {downloadingIndex !== null && (
+            <p className="text-[11px]">Downloading {downloadingIndex + 1} of {images.length}... please wait.</p>
+          )}
         </div>
       </div>
     </div>
