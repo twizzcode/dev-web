@@ -5,10 +5,12 @@ import { cn } from "@/lib/utils";
 import React, { useEffect } from "react";
 
 import { AnimatedGradientText } from "@/components/ui/animated-gradient-text";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Columns, FileText, Film } from "lucide-react";
 import { RainbowButton } from "@/components/ui/rainbow-button";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { BorderBeam } from "@/components/ui/border-beam";
+import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface HomeUploadProps {
   onComplete?: (files: File[]) => void;
@@ -30,8 +32,7 @@ const HomeUpload: React.FC<HomeUploadProps> = ({ onComplete }) => {
   return (
     <div className="flex flex-1 flex-col h-[calc(100vh-80px)] overflow-hidden">
       {/* Inner content area with consistent padding like home */}
-      <div className="relative flex flex-1 flex-col p-4 overflow-hidden">
-        <div className="relative flex flex-1 flex-col lg:flex-row gap-4 overflow-hidden">
+      <div className="relative flex flex-1 flex-col lg:flex-col p-4 overflow-hidden">
           {/* Animated background */}
           <AnimatedGridPattern
             numSquares={50}
@@ -42,6 +43,8 @@ const HomeUpload: React.FC<HomeUploadProps> = ({ onComplete }) => {
               "skew-y-12"
             )}
             />
+        <div className="relative flex flex-1 flex-col lg:flex-row gap-4 overflow-hidden">
+
           {/* Left Panel */}
           <div className="relative z-10 flex-1 rounded-lg p-4 flex flex-col justify-center overflow-hidden xl:pl-30 lg:items-center">
             <div className="w-full max-w-2xl mx-auto flex flex-col items-center md:items-start">
@@ -71,7 +74,7 @@ const HomeUpload: React.FC<HomeUploadProps> = ({ onComplete }) => {
               <AuroraText className="text-5xl md:text-6xl font-bold tracking-tighter mb-4">
                 twizzcutter.com
               </AuroraText>
-              <p className="text-lg max-w-lg text-accent-foreground/80 font-semibold text-center md:text-start">
+              <p className="text-sm lg:text-lg max-w-lg text-accent-foreground/80 font-semibold text-center md:text-start">
                 The best platform to cut your images, The best platform to cut your images, The best platform to cut your images,
               </p>
               <RainbowButton className="mt-6 px-6 py-3 w-[200px] rounded-full">
@@ -102,7 +105,18 @@ const HomeUpload: React.FC<HomeUploadProps> = ({ onComplete }) => {
               <ImageUpload onFilesChange={(f) => setFiles(f)} />
             </div>
           </div>
+          
+            {/* Help / Tutorials cards */}
         </div>
+          <div className="relative z-10 w-full">
+            <div className="">
+                <div className="grid md:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  <a href="https://www.instagram.com/p/DNVYDaxzgE1/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==" target="_blank" rel="noopener noreferrer" className="text-sm text-white hover:underline text-center">Cara posting feeds bersambung</a>
+                  <a href="https://www.instagram.com/p/DNm1X3-zpro/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==" target="_blank" rel="noopener noreferrer" className="text-sm text-white hover:underline text-center">Cara post reels bersambung</a>
+                  <a href="https://www.instagram.com/p/DNX_Hfmzi-s/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==" target="_blank" rel="noopener noreferrer" className="text-sm text-white hover:underline text-center">Perbedaan with-gap dan without-gap</a>
+                </div>
+            </div>
+          </div>
       </div>
     </div>
   )
