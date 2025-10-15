@@ -24,6 +24,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // persist custom fields from User to token on first login
         token.id = user.id
         token.role = (user as { role?: string }).role ?? "USER"
+      } else if (token?.id) {
+        // Keep role in sync with DB if it changes after login (e.g., promoted to ADMIN)
+        try {
+          const db = await prisma.user.findUnique({ where: { id: token.id as string }, select: { role: true } });
+          if (db?.role && db.role !== (token as { role?: string }).role) {
+            (token as { role?: string }).role = db.role;
+          }
+        } catch {
+          // ignore sync failures; fall back to existing token role
+        }
       }
       return token
     },
