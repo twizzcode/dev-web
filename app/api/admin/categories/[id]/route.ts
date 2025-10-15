@@ -3,22 +3,23 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { z } from "zod";
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if ((session?.user as any)?.role !== "ADMIN") return new NextResponse("FORBIDDEN", { status: 403 });
+  if ((session?.user as { role?: string })?.role !== "ADMIN") return new NextResponse("FORBIDDEN", { status: 403 });
   try {
-    const row = await prisma.templateCategory.findUnique({ where: { id: params.id } });
+    const { id } = await params;
+    const row = await prisma.templateCategory.findUnique({ where: { id } });
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(row);
-  } catch (err:any) {
+  } catch (err: unknown) {
     console.error("[admin.categories.get]", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if ((session?.user as any)?.role !== "ADMIN") return new NextResponse("FORBIDDEN", { status: 403 });
+  if ((session?.user as { role?: string })?.role !== "ADMIN") return new NextResponse("FORBIDDEN", { status: 403 });
   try {
     const json = await req.json();
     const Schema = z.object({
@@ -31,29 +32,31 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       isActive: z.boolean().optional(),
     });
     const data = Schema.parse(json);
-    const row = await prisma.templateCategory.update({ where: { id: params.id }, data });
+    const { id } = await params;
+    const row = await prisma.templateCategory.update({ where: { id }, data });
     return NextResponse.json(row);
-  } catch (err:any) {
-    if (err?.code === "P2002") {
+  } catch (err: unknown) {
+    if ((err as { code?: string }).code === "P2002") {
       return NextResponse.json({ error: "Slug already exists" }, { status: 409 });
     }
-    if (err?.issues) {
-      return NextResponse.json({ error: "Invalid input", details: err.issues }, { status: 400 });
+    if (typeof err === 'object' && err !== null && 'issues' in err) {
+      return NextResponse.json({ error: "Invalid input", details: (err as { issues: unknown }).issues }, { status: 400 });
     }
     console.error("[admin.categories.update]", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if ((session?.user as any)?.role !== "ADMIN") return new NextResponse("FORBIDDEN", { status: 403 });
+  if ((session?.user as { role?: string })?.role !== "ADMIN") return new NextResponse("FORBIDDEN", { status: 403 });
   try {
-    await prisma.templateCategory.delete({ where: { id: params.id } });
+    const { id } = await params;
+    await prisma.templateCategory.delete({ where: { id } });
     return NextResponse.json({ ok: true });
-  } catch (err:any) {
+  } catch (err: unknown) {
     // Category in use by products (FK constraint)
-    if (err?.code === "P2003") {
+    if ((err as { code?: string }).code === "P2003") {
       return NextResponse.json({ error: "Cannot delete category in use by products" }, { status: 400 });
     }
     console.error("[admin.categories.delete]", err);

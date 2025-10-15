@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import Midtrans from "midtrans-client";
 
 type MidtransNotification = {
   transaction_status: string;

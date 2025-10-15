@@ -3,16 +3,17 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { z } from "zod";
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if ((session?.user as any)?.role !== "ADMIN") return new NextResponse("FORBIDDEN", { status: 403 });
-  const row = await prisma.templateProduct.findUnique({ where: { id: params.id }, include: { category: true, links: true } });
+  if ((session?.user as { role?: string })?.role !== "ADMIN") return new NextResponse("FORBIDDEN", { status: 403 });
+  const { id } = await params;
+  const row = await prisma.templateProduct.findUnique({ where: { id }, include: { category: true, links: true } });
   return NextResponse.json(row);
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!session || (session.user as any)?.role !== "ADMIN") return new NextResponse("FORBIDDEN", { status: 403 });
+  if (!session || (session.user as { role?: string })?.role !== "ADMIN") return new NextResponse("FORBIDDEN", { status: 403 });
   try {
     const json = await req.json();
     const Schema = z.object({
@@ -42,39 +43,43 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     });
     const data = Schema.parse(json);
     // Ensure updatedBy user exists; if not, omit to avoid FK errors
-    const maybeUserId = (session.user as any)?.id as string | undefined;
+    const maybeUserId = (session.user as { id?: string })?.id as string | undefined;
     let updatedById: string | undefined = undefined;
     if (maybeUserId) {
       const userExists = await prisma.user.findUnique({ where: { id: maybeUserId } });
       if (userExists) updatedById = maybeUserId;
     }
-    const row = await prisma.templateProduct.update({ where: { id: params.id }, data: { ...data, updatedById } });
+    const { id } = await params;
+    const row = await prisma.templateProduct.update({ where: { id }, data: { ...data, updatedById } });
     return NextResponse.json(row);
-  } catch (err: any) {
-    if (err?.code === "P2002") {
+  } catch (err: unknown) {
+    if ((err as { code?: string }).code === "P2002") {
       return NextResponse.json({ error: "Slug already exists" }, { status: 409 });
     }
-    if (err?.code === "P2003") {
-      const field = err?.meta?.field_name || err?.meta?.target || "reference";
+    if ((err as { code?: string }).code === "P2003") {
+      const meta = (err as { meta?: Record<string, unknown> }).meta;
+      const field = (meta as { field_name?: string; target?: string })?.field_name || (meta as { target?: string })?.target || "reference";
       const message = `Invalid reference (${String(field)}). Check categoryId or updatedById.`;
-      const body: any = { error: message };
-      if (process.env.NODE_ENV !== "production" && err?.meta) body.meta = err.meta;
+      const body: Record<string, unknown> = { error: message };
+      if (process.env.NODE_ENV !== "production" && meta) body.meta = meta;
       return NextResponse.json(body, { status: 400 });
     }
-    if (err?.issues) {
-      return NextResponse.json({ error: "Invalid input", details: err.issues }, { status: 400 });
+    if (typeof err === 'object' && err !== null && 'issues' in err) {
+      return NextResponse.json({ error: "Invalid input", details: (err as { issues: unknown }).issues }, { status: 400 });
     }
     console.error("[admin.products.update]", err);
     if (process.env.NODE_ENV !== "production") {
-      return NextResponse.json({ error: "Internal Server Error", message: String(err?.message || err) }, { status: 500 });
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json({ error: "Internal Server Error", message }, { status: 500 });
     }
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if ((session?.user as any)?.role !== "ADMIN") return new NextResponse("FORBIDDEN", { status: 403 });
-  await prisma.templateProduct.delete({ where: { id: params.id } });
+  if ((session?.user as { role?: string })?.role !== "ADMIN") return new NextResponse("FORBIDDEN", { status: 403 });
+  const { id } = await params;
+  await prisma.templateProduct.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

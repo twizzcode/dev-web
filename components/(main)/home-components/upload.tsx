@@ -9,7 +9,6 @@ import { ChevronRight } from "lucide-react";
 import { RainbowButton } from "@/components/ui/rainbow-button";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { BorderBeam } from "@/components/ui/border-beam";
-import { Card } from "@/components/ui/card";
 
 interface HomeUploadProps {
   onComplete?: (files: File[]) => void;

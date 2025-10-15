@@ -140,7 +140,7 @@ const LazyImageItem: React.FC<LazyItemProps> = ({ src, index, onDownload }) => {
       {inView ? (
         // use lightweight preview when available to avoid heavy decoding on mobile
         previewSrc ? (
-          <img
+          <Image
             src={previewSrc}
             alt={`crop-${index + 1}`}
             loading="lazy"

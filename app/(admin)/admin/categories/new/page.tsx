@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function NewCategoryPage() {
@@ -18,8 +18,9 @@ export default function NewCategoryPage() {
       if (!res.ok) throw new Error(await res.text());
       router.push("/admin/categories");
       router.refresh();
-    } catch (err:any) {
-      setError(err.message || "Failed to create category");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : typeof err === 'string' ? err : 'Failed to create category';
+      setError(message);
     } finally { setSaving(false); }
   }
 

@@ -1,6 +1,5 @@
 "use client";
 import React, { useMemo, useState } from 'react';
-import { useTheme } from 'next-themes';
 import ExpandableCardDemo, { CardItem as ExpandableCardItem } from '@/components/expandable-card-demo-grid';
 
 type TemplateCategory = 'header_google_form' | 'lanyard' | 'id_card' | 'organigram' | 'other' | string; // align with CardType plus dynamic slugs
@@ -16,10 +15,6 @@ interface TemplateLinkGroup {
   category?: TemplateCategory;
 }
 
-// No longer used: data comes from API
-const BASIC_TEMPLATES: TemplateLinkGroup[] = [];
-const COMING_SOON: TemplateLinkGroup[] = [];
-
 type ActiveFilter = 'basic' | 'owned' | 'all' | TemplateCategory;
 
 const PRIMARY_CHIPS: { id: 'basic' | 'owned'; label: string }[] = [
@@ -30,14 +25,12 @@ const PRIMARY_CHIPS: { id: 'basic' | 'owned'; label: string }[] = [
 type CategoryChip = { id: string; label: string };
 
 const TemplatesPage: React.FC = () => {
-  const { theme } = useTheme();
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>('all');
   const [categoryChips, setCategoryChips] = useState<CategoryChip[]>([{ id: 'all', label: 'All' }]);
   const [catsLoading, setCatsLoading] = useState(false);
   const [items, setItems] = useState<ProductDTO[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const ownedTemplates: TemplateLinkGroup[] = useMemo(() => [], []); // UI only for now
   // Load categories dynamically from DB
   React.useEffect(() => {
     let cancelled = false;
