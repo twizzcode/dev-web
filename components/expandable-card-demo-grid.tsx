@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import { useOutsideClick } from "@/hooks/use-outside-click";
 import { ShoppingCart, CreditCard, TrendingUp } from "lucide-react";
+import Image from "next/image";
 
 type CardType = 'header_google_form' | 'lanyard' | 'id_card' | 'organigram' | 'other';
 
@@ -43,7 +44,7 @@ export default function ExpandableCardDemo({ cards: cardsProp }: ExpandableCardD
   const [opening,setOpening] = useState<string|null>(null);
 
   function resolveId(item: CardItem): string | undefined {
-    return item.productId || (item as any)._id || (item as any).id;
+    return item.productId || (item as { _id?: string })._id || (item as { id?: string }).id;
   }
 
   const onAddToCart = async (item: CardItem) => {
@@ -66,8 +67,9 @@ export default function ExpandableCardDemo({ cards: cardsProp }: ExpandableCardD
         return;
       }
       toast.success('Ditambahkan ke cart');
-    } catch(e:any){
-      toast.error(e.message || 'Gagal menambah');
+    } catch(e: unknown){
+      const msg = e instanceof Error ? e.message : 'Gagal menambah';
+      toast.error(msg);
     } finally { setAdding(null); }
   };
 
@@ -98,8 +100,9 @@ export default function ExpandableCardDemo({ cards: cardsProp }: ExpandableCardD
       } else {
         toast.success('Order dibuat');
       }
-    } catch(e:any){
-      toast.error(e.message || 'Checkout gagal');
+    } catch(e: unknown){
+      const msg = e instanceof Error ? e.message : 'Checkout gagal';
+      toast.error(msg);
     } finally { setBuying(null); }
   };
 
@@ -116,8 +119,9 @@ export default function ExpandableCardDemo({ cards: cardsProp }: ExpandableCardD
       if (!url) { toast.error('Link Canva belum tersedia untuk produk ini.'); return; }
       await navigator.clipboard.writeText(url);
       toast.success('Link disalin ke clipboard');
-    } catch (e:any) {
-      toast.error(e.message || 'Gagal membuka link');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Gagal membuka link';
+      toast.error(msg);
     } finally { setOpening(null); }
   };
 
@@ -181,12 +185,12 @@ export default function ExpandableCardDemo({ cards: cardsProp }: ExpandableCardD
               className="w-full max-w-[500px]  h-full md:h-fit md:max-h-[90%]  flex flex-col bg-white dark:bg-neutral-900 sm:rounded-3xl overflow-hidden"
             >
               <motion.div layoutId={`image-${active.title}-${id}`} className="w-full aspect-square sm:rounded-tr-lg sm:rounded-tl-lg overflow-hidden">
-                <img
-                  width={200}
-                  height={200}
+                <Image
                   src={active.src}
                   alt={active.title}
-                  className="w-full h-full object-cover object-center"
+                  fill
+                  sizes="100vw"
+                  className="object-cover object-center"
                 />
               </motion.div>
 
@@ -264,7 +268,7 @@ export default function ExpandableCardDemo({ cards: cardsProp }: ExpandableCardD
         ) : null}
       </AnimatePresence>
       <ul className="w-full grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 items-start gap-3 sm:gap-4">
-        {cards.map((card, index) => (
+        {cards.map((card) => (
           <motion.div
             layoutId={`card-${card.title}-${id}`}
             key={card.title}
@@ -273,12 +277,12 @@ export default function ExpandableCardDemo({ cards: cardsProp }: ExpandableCardD
           >
             <div className="flex gap-4 flex-col  w-full">
               <motion.div layoutId={`image-${card.title}-${id}`} className="w-full aspect-square rounded-lg overflow-hidden">
-                <img
-                  width={100}
-                  height={100}
+                <Image
                   src={card.src}
                   alt={card.title}
-                  className="h-full w-full object-cover object-center"
+                  fill
+                  sizes="(max-width: 640px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                  className="object-cover object-center"
                 />
               </motion.div>
               <div className="flex justify-start items-start flex-col w-full flex-1"

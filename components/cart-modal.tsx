@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Checkbox } from "@/components/ui/checkbox";
+import Image from "next/image";
 
 type CartItemApi = {
   id: string;
@@ -38,14 +39,15 @@ export function CartModal() {
           window.location.href = '/login';
           return;
         }
-        if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
         if (!cancelled) {
           setItems(data);
           setSelected(new Set(data.map((d:CartItemApi)=>d.id))); // auto select all
         }
-      } catch (e:any) {
-        if (!cancelled) setError(e.message || 'Failed to load cart');
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Failed to load cart';
+        if (!cancelled) setError(msg);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -98,7 +100,8 @@ export function CartModal() {
     } catch (e) {
       // rollback
       setItems(prev);
-      setError((e as any)?.message || 'Gagal menghapus');
+      const msg = e instanceof Error ? e.message : 'Gagal menghapus';
+      setError(msg);
     }
   }
 
@@ -162,11 +165,11 @@ export function CartModal() {
                         <div className="flex gap-4 flex-col md:flex-row ">
                           <Checkbox checked={selected.has(it.id)} onCheckedChange={()=>toggle(it.id)} />
                           <motion.div layoutId={`image-${it.id}`} onClick={() => setActive(it)}>
-                            <img
-                              width={100}
-                              height={100}
+                            <Image
                               src={it.product.imageUrl}
                               alt={it.product.title}
+                              width={160}
+                              height={160}
                               className="h-40 w-40 md:h-14 md:w-14 rounded-lg object-cover object-top"
                             />
                           </motion.div>
@@ -217,8 +220,9 @@ export function CartModal() {
                   if (data.redirectUrl) {
                     window.location.href = data.redirectUrl;
                   }
-                } catch (e:any) {
-                  alert(e.message || 'Checkout failed');
+                } catch (e: unknown) {
+                  const msg = e instanceof Error ? e.message : 'Checkout failed';
+                  alert(msg);
                 }
               }}
             >
@@ -253,11 +257,11 @@ export function CartModal() {
                       ×
                     </button>
                     <motion.div layoutId={`image-${active.id}`}>
-                      <img
-                        width={200}
-                        height={200}
+                      <Image
                         src={active.product.imageUrl}
                         alt={active.product.title}
+                        width={800}
+                        height={800}
                         className="w-full h-80 lg:h-80 sm:rounded-tr-lg sm:rounded-tl-lg object-cover object-top"
                       />
                     </motion.div>

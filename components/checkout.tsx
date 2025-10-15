@@ -7,7 +7,12 @@ import { product } from "@/lib/product";
 declare global {
   interface Window {
     snap: {
-      pay: (token: string, options?: any) => void;
+      pay: (token: string, options?: {
+        onSuccess?: (result: unknown) => void;
+        onPending?: (result: unknown) => void;
+        onError?: (result: unknown) => void;
+        onClose?: () => void;
+      }) => void;
     };
   }
 }
@@ -77,15 +82,15 @@ const Checkout = () => {
       
       // Use the Snap payment method
       window.snap.pay(requestData.token, {
-        onSuccess: function(result: any) {
+        onSuccess: function(result: unknown) {
           console.log('Payment success:', result);
           alert('Pembayaran berhasil!');
         },
-        onPending: function(result: any) {
+        onPending: function(result: unknown) {
           console.log('Payment pending:', result);
           alert('Pembayaran pending, silakan selesaikan pembayaran.');
         },
-        onError: function(result: any) {
+        onError: function(result: unknown) {
           console.log('Payment error:', result);
           alert('Terjadi kesalahan dalam pembayaran.');
         },

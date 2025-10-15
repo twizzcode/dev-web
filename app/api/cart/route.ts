@@ -7,7 +7,7 @@ import { z } from "zod";
 export async function GET() {
   const session = await auth();
   if (!session) return new NextResponse("UNAUTHORIZED", { status: 401 });
-  const userId = (session.user as any).id as string;
+  const userId = (session.user as { id?: string }).id as string;
   const items = await prisma.cartItem.findMany({
     where: { userId },
     include: { product: true },
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       replace: z.boolean().optional(),
     });
   const { productId } = Schema.parse(body);
-    const userId = (session.user as any).id as string;
+    const userId = (session.user as { id?: string }).id as string;
 
     if (!userId) {
       return NextResponse.json({ error: "User id missing in session" }, { status: 400 });
@@ -62,21 +62,22 @@ export async function POST(req: Request) {
       }
       return NextResponse.json(existing, { status: 200 });
     }
-  } catch (err: any) {
-  if (err?.issues) return NextResponse.json({ error: "Invalid input", details: err.issues }, { status: 400 });
+  } catch (err: unknown) {
+  if ((err as { issues?: unknown }).issues) return NextResponse.json({ error: "Invalid input", details: (err as { issues?: unknown }).issues }, { status: 400 });
     // Prisma known errors
-    if (err?.code === 'P2003') {
-      return NextResponse.json({ error: 'Foreign key constraint failed (check productId and userId)', code: err.code, meta: err.meta }, { status: 400 });
+    if ((err as { code?: string }).code === 'P2003') {
+      const e = err as { code?: string; meta?: unknown };
+      return NextResponse.json({ error: 'Foreign key constraint failed (check productId and userId)', code: e.code, meta: e.meta }, { status: 400 });
     }
-    if (err?.code === 'P2002') {
+    if ((err as { code?: string }).code === 'P2002') {
       // uniqueness (shouldn't happen here except race condition)
-      return NextResponse.json({ error: 'Duplicate cart item', code: err.code }, { status: 409 });
+      return NextResponse.json({ error: 'Duplicate cart item', code: (err as { code?: string }).code }, { status: 409 });
     }
     console.error("[cart.post] unexpected", {
-      message: err?.message,
-      stack: err?.stack,
-      code: err?.code,
+      message: (err as Error)?.message,
+      stack: (err as Error)?.stack,
+      code: (err as { code?: string }).code,
     });
-    return NextResponse.json({ error: "Internal Server Error", message: err?.message, code: err?.code }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error", message: (err as Error)?.message, code: (err as { code?: string }).code }, { status: 500 });
   }
 }

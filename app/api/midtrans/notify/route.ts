@@ -67,8 +67,9 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('[midtrans.notify]', err);
-    return NextResponse.json({ error: 'Internal Server Error', message: err?.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error', message }, { status: 500 });
   }
 }

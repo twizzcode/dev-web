@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { useTheme } from 'next-themes';
 import ExpandableCardDemo, { CardItem as ExpandableCardItem } from '@/components/expandable-card-demo-grid';
 
-type TemplateCategory = 'other' | string; // now dynamic slugs from DB
+type TemplateCategory = 'header_google_form' | 'lanyard' | 'id_card' | 'organigram' | 'other' | string; // align with CardType plus dynamic slugs
 
 interface TemplateLinkGroup {
   id: string;
@@ -171,6 +171,14 @@ type ProductDTO = {
   buyersCount?: number;
 };
 
+// Local union matching the card component's accepted types
+type LocalCardType = 'header_google_form' | 'lanyard' | 'id_card' | 'organigram' | 'other';
+const allowedTypes = new Set<LocalCardType>(['header_google_form','lanyard','id_card','organigram','other']);
+function toCardType(slug?: string | null): LocalCardType {
+  if (!slug) return 'other';
+  return (allowedTypes.has(slug as LocalCardType) ? (slug as LocalCardType) : 'other');
+}
+
 function mapProductsToCards(rows: ProductDTO[], ownedFlag: boolean): ExpandableCardItem[] {
   return rows.map((p) => ({
     title: p.title,
@@ -181,7 +189,7 @@ function mapProductsToCards(rows: ProductDTO[], ownedFlag: boolean): ExpandableC
     content: null,
     price: p.price,
   sold: typeof p.buyersCount === 'number' ? p.buyersCount : p.soldCount,
-    type: (p.category?.slug as any) ?? 'other',
+    type: toCardType(p.category?.slug),
     productId: p.id,
     owned: typeof p.owned === 'boolean' ? p.owned : ownedFlag,
   }));

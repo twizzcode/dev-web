@@ -23,14 +23,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         // persist custom fields from User to token on first login
         token.id = user.id
-        token.role = (user as any).role ?? "USER"
+        token.role = (user as { role?: string }).role ?? "USER"
       }
       return token
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = (token as any).id
-        session.user.role = (token as any).role ?? "USER"
+        session.user.id = (token as { id?: string }).id as string
+        session.user.role = (token as { role?: string }).role ?? "USER"
       }
       return session
     },
