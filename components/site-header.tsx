@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import ThemeButton from "@/components/theme-button"
+import { CartModal } from "@/components/cart-modal"
 import { usePathname } from "next/navigation"
 
 // Helper function to capitalize first letter of a string
@@ -23,16 +24,7 @@ export function SiteHeader() {
         />
         <h1 className="text-base font-medium">{capitalizeFirstLetter(route.split("/").pop() || "Cutter")}</h1>
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" asChild size="sm" className="hidden sm:flex">
-            <a
-              href="https://github.com/twizzcode"
-              rel="noopener noreferrer"
-              target="_blank"
-              className="dark:text-foreground"
-            >
-              GitHub
-            </a>
-          </Button>
+          <CartModal />
           <ThemeButton />
         </div>
       </div>

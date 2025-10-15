@@ -16,13 +16,13 @@ async function getAnalytics() {
 
   const rows = await prisma.$queryRaw<Array<{ day: Date; cutter: number; reels: number }>>`
     SELECT
-      date_trunc('day', "createdAt")::date AS day,
-      SUM(CASE WHEN "kind" = 'cutter_click' THEN 1 ELSE 0 END)::int AS cutter,
-      SUM(CASE WHEN "kind" = 'reels_click' THEN 1 ELSE 0 END)::int AS reels
-    FROM "AnalyticsEvent"
-    WHERE "createdAt" >= ${start}
-    GROUP BY day
-    ORDER BY day
+      DATE(createdAt) AS day,
+      SUM(CASE WHEN kind = 'cutter_click' THEN 1 ELSE 0 END) AS cutter,
+      SUM(CASE WHEN kind = 'reels_click' THEN 1 ELSE 0 END) AS reels
+    FROM AnalyticsEvent
+    WHERE createdAt >= ${start}
+    GROUP BY DATE(createdAt)
+    ORDER BY DATE(createdAt)
   `;
 
   const byKey = new Map<string, { cutter: number; reels: number }>();
@@ -43,29 +43,41 @@ async function getAnalytics() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [todayCutter, todayReels] = await Promise.all([
-    prisma.analyticsEvent.count({ where: { kind: "cutter_click", createdAt: { gte: today } } }),
-    prisma.analyticsEvent.count({ where: { kind: "reels_click", createdAt: { gte: today } } }),
-  ]);
+  const [{ cToday = 0 } = { cToday: 0 }] = await prisma.$queryRaw<Array<{ cToday: number }>>`
+    SELECT COUNT(*) AS cToday
+    FROM AnalyticsEvent
+    WHERE kind = 'cutter_click' AND createdAt >= ${today}
+  `;
+  const [{ rToday = 0 } = { rToday: 0 }] = await prisma.$queryRaw<Array<{ rToday: number }>>`
+    SELECT COUNT(*) AS rToday
+    FROM AnalyticsEvent
+    WHERE kind = 'reels_click' AND createdAt >= ${today}
+  `;
 
-  const [totalCutter, totalReels] = await Promise.all([
-    prisma.analyticsEvent.count({ where: { kind: "cutter_click" } }),
-    prisma.analyticsEvent.count({ where: { kind: "reels_click" } }),
-  ]);
+  const [{ cTotal = 0 } = { cTotal: 0 }] = await prisma.$queryRaw<Array<{ cTotal: number }>>`
+    SELECT COUNT(*) AS cTotal
+    FROM AnalyticsEvent
+    WHERE kind = 'cutter_click'
+  `;
+  const [{ rTotal = 0 } = { rTotal: 0 }] = await prisma.$queryRaw<Array<{ rTotal: number }>>`
+    SELECT COUNT(*) AS rTotal
+    FROM AnalyticsEvent
+    WHERE kind = 'reels_click'
+  `;
 
   // Unique users today by IP
   let todayUserCount = 0;
   try {
     const [{ count: ipCount } = { count: 0 }] = await prisma.$queryRaw<Array<{ count: number }>>`
-      SELECT COUNT(DISTINCT "ip")::int AS count
-      FROM "AnalyticsEvent"
-      WHERE "createdAt" >= ${today} AND "ip" IS NOT NULL
+      SELECT COUNT(DISTINCT ip) AS count
+      FROM AnalyticsEvent
+      WHERE createdAt >= ${today} AND ip IS NOT NULL
     `;
     todayUserCount = ipCount;
   } catch {
     // silent
   }
-  return { points, todayCutter, todayReels, totalCutter, totalReels, todayUserCount };
+  return { points, todayCutter: Number(cToday), todayReels: Number(rToday), totalCutter: Number(cTotal), totalReels: Number(rTotal), todayUserCount };
 }
 
 // Komponen server yang fetch data (dibungkus Suspense)

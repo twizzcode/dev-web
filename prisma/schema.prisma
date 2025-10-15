@@ -8,10 +8,15 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// datasource db {
+//   provider = "postgresql"
+//   url      = env("DATABASE_URL")
+//   directUrl = env("DIRECT_URL")
+// }
+
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -22,22 +27,29 @@ model User {
   image         String?
   role          String          @default("USER")
   accounts      Account[]
+  sessions      Session[]
+  productsCreated TemplateProduct[] @relation("ProductCreatedBy")
+  productsUpdated TemplateProduct[] @relation("ProductUpdatedBy")
+  cartItems     CartItem[]
+  orders        Order[]
+  ownedTemplates TemplateOwnership[]
  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
  
 model Account {
-  userId            String
+  id                 String   @id @default(cuid())
+  userId             String
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String?
-  access_token      String?
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
   expires_at        Int?
   token_type        String?
-  scope             String?
-  id_token          String?
+  scope             String?  @db.Text
+  id_token          String?  @db.Text
   session_state     String?
  
   createdAt DateTime @default(now())
@@ -45,7 +57,31 @@ model Account {
  
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
  
-  @@id([provider, providerAccountId])
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  createdAt  DateTime @default(now())
+
+  @@unique([identifier, token])
 }
 
 model AnalyticsEvent {
@@ -57,4 +93,156 @@ model AnalyticsEvent {
   createdAt DateTime @default(now())
 
   @@index([kind, createdAt])
+}
+
+// ===== Selling (Catalog) =====
+
+/// Dynamic category that admin can manage via dashboard
+model TemplateCategory {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?  @db.Text
+  imageUrl    String?  @db.Text
+  color       String?  // HEX or tailwind token for UI accent
+  position    Int      @default(0)
+  isActive    Boolean  @default(true)
+
+  products    TemplateProduct[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, position])
+}
+
+/// Visual/layout mode for a template variant
+enum TemplateMode {
+  with_gap
+  without_gap
+  carousel
+}
+
+/// A sellable template product (catalog item)
+model TemplateProduct {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  title       String
+  description String       @db.Text
+  categoryId  String
+  category    TemplateCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  price       Int          // store in IDR (rupiah) as integer amount
+  imageUrl    String       @db.Text // preview/cover image
+  soldCount   Int          @default(0)
+  isActive    Boolean      @default(true)
+  // Link khusus untuk pembeli (contoh: Canva template URL)
+  ownerLink   String?      @db.Text
+
+  // Optional: links/variants for demo or different sizes
+  links       TemplateLink[]
+
+  // Relations for commerce
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+  ownerships  TemplateOwnership[]
+
+  // Optional: authorship tracking
+  createdById String?
+  updatedById String?
+  createdBy   User?        @relation("ProductCreatedBy", fields: [createdById], references: [id])
+  updatedBy   User?        @relation("ProductUpdatedBy", fields: [updatedById], references: [id])
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([categoryId, isActive])
+  @@index([createdById])
+}
+
+/// External link(s) associated with a template product (e.g., demo or presets)
+model TemplateLink {
+  id         String        @id @default(cuid())
+  productId  String
+  url        String        @db.Text
+  label      String?
+  position   Int           @default(0)
+  mode       TemplateMode?
+
+  product    TemplateProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([productId, position])
+}
+
+// ===== Cart & Orders =====
+
+model CartItem {
+  id         String          @id @default(cuid())
+  userId     String
+  productId  String
+  quantity   Int             @default(1)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product    TemplateProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+}
+
+enum OrderStatus {
+  PENDING      // created, waiting payment
+  PAID         // payment success (capture/settlement)
+  EXPIRED      // payment expired
+  CANCELED     // canceled manually / failure
+}
+
+model Order {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status        OrderStatus  @default(PENDING)
+  grossAmount   Int          // total amount (IDR)
+  midtransOrderId String?    // order_id we send to Midtrans
+  midtransToken  String?     // snap token
+  midtransRedirectUrl String?
+  midtransPayload  Json?     // raw response for auditing
+  items         OrderItem[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([userId, status])
+  @@index([midtransOrderId])
+}
+
+model OrderItem {
+  id         String          @id @default(cuid())
+  orderId    String
+  productId  String
+  priceEach  Int             // snapshot price at purchase
+  quantity   Int             @default(1)
+  order      Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product    TemplateProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// Tracks ownership (user has purchased this product)
+model TemplateOwnership {
+  id         String          @id @default(cuid())
+  userId     String
+  productId  String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product    TemplateProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt  DateTime        @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
 }

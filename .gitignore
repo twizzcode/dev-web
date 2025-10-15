@@ -22,6 +22,7 @@
 
 # misc
 .DS_Store
+Thumbs.db
 *.pem
 
 # debug
@@ -29,8 +30,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.eslintcache
+.stylelintcache
 
-# env files (can opt-in for committing if needed)
+# env files (keep secrets out of git)
 .env*
 
 # vercel
@@ -40,4 +43,23 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-/app/generated/prisma
+# prisma (generated/local)
+# Keep schema.prisma & migrations tracked!
+/.prisma
+prisma/*.db
+prisma/*.sqlite
+prisma/*.db-journal
+
+# editor/IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# build tools cache
+.turbo/
+.swc/
+.cache/
+tmp/
+
+# app generated artifacts (if you truly generate this)
+#/app/generated/prisma
