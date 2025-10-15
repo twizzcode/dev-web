@@ -8,7 +8,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if ((session?.user as { role?: string })?.role !== "ADMIN") return new NextResponse("FORBIDDEN", { status: 403 });
   try {
     const { id } = await params;
-    const row = await prisma.templateCategory.findUnique({ where: { id } });
+  const row = await prisma.templateCategory.findUnique({ where: { id } });
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(row);
   } catch (err: unknown) {
