@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { FileUpload } from "@/components/ui/file-upload";
 import { useRouter } from "next/navigation";
 
 type Category = { id: string; name: string; slug: string; isActive: boolean };
@@ -132,10 +133,25 @@ export default function NewProductPage() {
             <span className="text-sm font-medium">Price (IDR)</span>
             <input type="number" className="border rounded-md px-3 py-2" required value={form.price} onChange={e=>setForm(f=>({...f,price:Number(e.target.value)}))} />
           </label>
-          <label className="grid gap-1">
-            <span className="text-sm font-medium">Image URL</span>
-            <input className="border rounded-md px-3 py-2" required value={form.imageUrl} onChange={e=>setForm(f=>({...f,imageUrl:e.target.value}))} />
-          </label>
+          <div className="grid gap-1">
+            <span className="text-sm font-medium">Image</span>
+            <div className="border rounded-md px-3 py-2">
+              <FileUpload onChange={async (files)=>{
+                const file = files[0];
+                if (!file) return;
+                if (file.size > 2*1024*1024) { alert('Maksimal 2MB'); return; }
+                const fd = new FormData();
+                fd.append('file', file, file.name);
+                const res = await fetch('/api/upload', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (!res.ok) { alert(data?.error || 'Upload gagal'); return; }
+                setForm(f=>({...f, imageUrl: data.url }));
+              }} />
+              {form.imageUrl && (
+                <p className="text-xs text-muted-foreground mt-2 break-all">Uploaded: {form.imageUrl}</p>
+              )}
+            </div>
+          </div>
           <label className="grid gap-1">
             <span className="text-sm font-medium">Sold Count</span>
             <input type="number" className="border rounded-md px-3 py-2" value={form.soldCount} onChange={e=>setForm(f=>({...f,soldCount:Number(e.target.value)}))} />

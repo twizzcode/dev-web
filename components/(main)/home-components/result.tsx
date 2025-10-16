@@ -135,7 +135,7 @@ const LazyImageItem: React.FC<LazyItemProps> = ({ src, index, onDownload }) => {
   return (
     <div
       ref={ref}
-      className="group relative border rounded-lg overflow-hidden bg-muted aspect-[4/5]"
+  className="group relative border rounded-lg overflow-hidden bg-muted aspect-square"
     >
       {inView ? (
         // use lightweight preview when available to avoid heavy decoding on mobile

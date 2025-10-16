@@ -184,13 +184,13 @@ export default function ExpandableCardDemo({ cards: cardsProp }: ExpandableCardD
               ref={ref}
               className="w-full max-w-[500px]  h-full md:h-fit md:max-h-[90%]  flex flex-col bg-white dark:bg-neutral-900 sm:rounded-3xl overflow-hidden"
             >
-              <motion.div layoutId={`image-${active.title}-${id}`} className="w-full aspect-square sm:rounded-tr-lg sm:rounded-tl-lg overflow-hidden">
+              <motion.div layoutId={`image-${active.title}-${id}`} className="relative w-full aspect-square max-h-[70vh] sm:rounded-tr-lg sm:rounded-tl-lg overflow-hidden bg-neutral-100 dark:bg-neutral-800">
                 <Image
                   src={active.src}
                   alt={active.title}
                   fill
                   sizes="100vw"
-                  className="object-cover object-center"
+                  className="object-contain sm:object-cover object-center"
                 />
               </motion.div>
 
@@ -276,13 +276,13 @@ export default function ExpandableCardDemo({ cards: cardsProp }: ExpandableCardD
             className="p-3 sm:p-4 flex flex-col hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl cursor-pointer min-w-0 min-h-[360px]"
           >
             <div className="flex gap-4 flex-col  w-full">
-              <motion.div layoutId={`image-${card.title}-${id}`} className="w-full aspect-square rounded-lg overflow-hidden">
+              <motion.div layoutId={`image-${card.title}-${id}`} className="relative w-full aspect-square rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-800">
                 <Image
                   src={card.src}
                   alt={card.title}
                   fill
                   sizes="(max-width: 640px) 50vw, (max-width: 1280px) 33vw, 25vw"
-                  className="object-cover object-center"
+                  className="object-contain sm:object-cover object-center"
                 />
               </motion.div>
               <div className="flex justify-start items-start flex-col w-full flex-1"
