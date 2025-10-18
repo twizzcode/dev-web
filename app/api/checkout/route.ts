@@ -53,13 +53,17 @@ export async function POST(req: Request) {
       return created;
     });
 
-    // Create Midtrans Snap transaction
-    const serverKey = process.env.NEXT_PUBLIC_SECRET;
-    const clientKey = process.env.NEXT_PUBLIC_CLIENT;
-    if (!serverKey || !clientKey) {
-      return NextResponse.json({ error: "Missing Midtrans configuration" }, { status: 500 });
+    // Create Midtrans Snap transaction (server-only key)
+    const serverKey = process.env.MIDTRANS_SERVER_KEY || process.env.MIDTRANS_SECRET || process.env.NEXT_PUBLIC_SECRET;
+    const clientKey = process.env.MIDTRANS_CLIENT_KEY || process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || process.env.NEXT_PUBLIC_CLIENT;
+    if (!serverKey) {
+      return NextResponse.json({ error: "Missing MIDTRANS_SERVER_KEY" }, { status: 500 });
     }
-    const snap = new Midtrans.Snap({ isProduction: false, serverKey, clientKey });
+    if (!clientKey) {
+      return NextResponse.json({ error: "Missing MIDTRANS_CLIENT_KEY" }, { status: 500 });
+    }
+    const isProduction = (process.env.MIDTRANS_IS_PRODUCTION === 'true');
+    const snap = new Midtrans.Snap({ isProduction, serverKey, clientKey });
     const parameter = {
       item_details: activeFiltered.map(ci => ({ id: ci.productId, price: ci.product.price, quantity: ci.quantity, name: ci.product.title })),
       transaction_details: { order_id: order.id, gross_amount: gross },

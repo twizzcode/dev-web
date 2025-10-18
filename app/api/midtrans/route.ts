@@ -3,19 +3,22 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
     try {
-        // Validate environment variables
-        if (!process.env.NEXT_PUBLIC_SECRET || !process.env.NEXT_PUBLIC_CLIENT) {
-            return NextResponse.json(
-                { error: "Missing Midtrans configuration" },
-                { status: 500 }
-            );
+        // Validate environment variables (server-only)
+        const serverKey = process.env.MIDTRANS_SERVER_KEY || process.env.MIDTRANS_SECRET || process.env.NEXT_PUBLIC_SECRET;
+        const clientKey = process.env.MIDTRANS_CLIENT_KEY || process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || process.env.NEXT_PUBLIC_CLIENT;
+        if (!serverKey) {
+            return NextResponse.json({ error: "Missing MIDTRANS_SERVER_KEY" }, { status: 500 });
+        }
+        if (!clientKey) {
+            return NextResponse.json({ error: "Missing MIDTRANS_CLIENT_KEY" }, { status: 500 });
         }
 
         // Initialize Midtrans Snap
+        const isProduction = (process.env.MIDTRANS_IS_PRODUCTION === 'true');
         const snap = new Midtrans.Snap({
-            isProduction: false,
-            serverKey: process.env.NEXT_PUBLIC_SECRET,
-            clientKey: process.env.NEXT_PUBLIC_CLIENT
+            isProduction,
+            serverKey,
+            clientKey,
         });
 
         const { id, productName, price, quantity } = await request.json();

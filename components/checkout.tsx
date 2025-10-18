@@ -23,10 +23,13 @@ const Checkout = () => {
   const [isSnapLoaded, setIsSnapLoaded] = useState(false);
 
   useEffect(() => {
-    // Load Midtrans Snap script
+    // Load Midtrans Snap script (URL configurable via env)
+    const snapUrl = process.env.NEXT_PUBLIC_MIDTRANS_SNAP_URL || 'https://app.sandbox.midtrans.com/snap/snap.js';
     const script = document.createElement('script');
-    script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
-    script.setAttribute('data-client-key', process.env.NEXT_PUBLIC_CLIENT || '');
+    script.src = snapUrl;
+    // mark the script so cleanup can identify it even if multiple scripts exist
+    script.setAttribute('data-midtrans-snap', 'true');
+    script.setAttribute('data-client-key', process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || process.env.NEXT_PUBLIC_CLIENT || '');
     script.onload = () => {
       setIsSnapLoaded(true);
     };
@@ -37,7 +40,8 @@ const Checkout = () => {
 
     return () => {
       // Cleanup script when component unmounts
-      const existingScript = document.querySelector('script[src="https://app.sandbox.midtrans.com/snap/snap.js"]');
+      // remove any script we created (identified by data-midtrans-snap)
+      const existingScript = document.querySelector('script[data-midtrans-snap="true"]');
       if (existingScript) {
         document.head.removeChild(existingScript);
       }
